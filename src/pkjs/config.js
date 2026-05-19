@@ -82,6 +82,19 @@ module.exports = [
         "messageKey": "ShowBatteryPercent",
         "label": "Show Battery Percentage",
         "defaultValue": true
+      },
+      {
+        "type": "select",
+        "messageKey": "RotateLogo",
+        "label": "Logo Animation Trigger",
+        "defaultValue": "4",
+        "options": [
+          { "label": "Off", "value": "0" },
+          { "label": "Every Minute", "value": "1" },
+          { "label": "Every Hour", "value": "2" },
+          { "label": "On Shake", "value": "3" },
+          { "label": "Battery 100% (debug)", "value": "4" }
+        ]
       }
     ]
   },
