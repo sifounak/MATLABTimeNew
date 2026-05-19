@@ -8,13 +8,19 @@
 	"resources": {
 		"*-alpha": [
 			{
-				"source": "./assets/Jersey10-Regular",
-				"size": 56,
+				"source": "./assets/fonts/Olyford-Semi-Bold",
+				"size": 48,
 				"monochrome": true,
 				"blocks": ["Basic Latin"]
 			},
 			{
-				"source": "./assets/Jersey10-Regular",
+				"source": "./assets/fonts/Olyford-Semi-Bold",
+				"size": 26,
+				"monochrome": true,
+				"blocks": ["Basic Latin"]
+			},
+			{
+				"source": "./assets/fonts/Olyford-Semi-Bold",
 				"size": 24,
 				"monochrome": true,
 				"blocks": ["Basic Latin"]

@@ -7,19 +7,35 @@ import Message from "pebble/message";
 
 const render = new Poco(screen);
 
-// Load a custom font from BMF resources
+// --- Fonts ---
+
 function getFont(name, size) {
     const font = parseBMF(new Resource(`${name}-${size}.fnt`));
     font.bitmap = parseRLE(new Resource(`${name}-${size}-alpha.bm4`));
     return font;
 }
 
-// Fonts
-const timeFont = getFont("Jersey10-Regular", 56);
-const dateFont = getFont("Jersey10-Regular", 24);
-const smallFont = new render.Font("Gothic-Regular", 18);
+const timeFont = getFont("Olyford-Semi-Bold", 48);
+const dateFont = getFont("Olyford-Semi-Bold", 26);
+const smallFont = getFont("Olyford-Semi-Bold", 24);
 
-// Default settings
+// --- Colors ---
+
+const green = render.makeColor(0, 170, 0);
+const yellow = render.makeColor(255, 170, 0);
+const red = render.makeColor(255, 0, 0);
+
+let bgColor, textColor;
+
+function updateColors() {
+    bgColor = render.makeColor(settings.backgroundColor.r,
+        settings.backgroundColor.g, settings.backgroundColor.b);
+    textColor = render.makeColor(settings.textColor.r,
+        settings.textColor.g, settings.textColor.b);
+}
+
+// --- Settings ---
+
 const DEFAULT_SETTINGS = {
     backgroundColor: { r: 0, g: 0, b: 0 },
     textColor: { r: 255, g: 255, b: 255 },
@@ -28,7 +44,6 @@ const DEFAULT_SETTINGS = {
     use24Hour: true
 };
 
-// Load settings from persistent storage
 function loadSettings() {
     const stored = localStorage.getItem("settings");
     if (stored) {
@@ -41,42 +56,27 @@ function loadSettings() {
     return { ...DEFAULT_SETTINGS };
 }
 
-// Save settings to persistent storage
 function saveSettings() {
     localStorage.setItem("settings", JSON.stringify(settings));
 }
 
 let settings = loadSettings();
+updateColors();
 
-// Create colors from settings
-let bgColor = render.makeColor(settings.backgroundColor.r,
-    settings.backgroundColor.g, settings.backgroundColor.b);
-let textColor = render.makeColor(settings.textColor.r,
-    settings.textColor.g, settings.textColor.b);
-const green = render.makeColor(0, 170, 0);
-const yellow = render.makeColor(255, 170, 0);
-const red = render.makeColor(255, 0, 0);
+// --- Constants ---
 
-function updateColors() {
-    bgColor = render.makeColor(settings.backgroundColor.r,
-        settings.backgroundColor.g, settings.backgroundColor.b);
-    textColor = render.makeColor(settings.textColor.r,
-        settings.textColor.g, settings.textColor.b);
-}
-
-// Day and month names
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                 "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-// Store latest time for redraws triggered by other events
+// --- State ---
+
 let lastDate = new Date();
-
-// Weather data
 let weather = null;
-
-// Battery state
 let batteryPercent = 100;
+let isConnected = true;
+
+// --- Battery ---
 
 const battery = new Battery({
     onSample() {
@@ -86,8 +86,7 @@ const battery = new Battery({
 });
 batteryPercent = battery.sample().percent;
 
-// Connection state
-let isConnected = true;
+// --- Connection ---
 
 function checkConnection() {
     isConnected = watch.connected.app;
@@ -96,7 +95,8 @@ function checkConnection() {
 watch.addEventListener("connected", checkConnection);
 checkConnection();
 
-// Map Open-Meteo weather codes to descriptions
+// --- Weather ---
+
 function getWeatherDescription(code) {
     if (code === 0) return "Clear";
     if (code <= 3) return "Cloudy";
@@ -114,18 +114,14 @@ function getWeatherDescription(code) {
     return "Unknown";
 }
 
-// Load cached weather on startup
 function loadCachedWeather() {
     const cached = localStorage.getItem("weather");
     const cachedTime = localStorage.getItem("weatherTime");
-
     if (cached && cachedTime) {
         const age = Date.now() - Number(cachedTime);
-        // Use cache if less than 1 hour old
         if (age < 60 * 60 * 1000) {
             try {
                 weather = JSON.parse(cached);
-                console.log("Using cached weather");
                 return true;
             } catch (e) {
                 console.log("Failed to parse cached weather");
@@ -142,14 +138,10 @@ function saveWeather() {
     }
 }
 
-// Get location from the Location sensor
-let location = null;
-
 function requestLocation() {
-    location = new Location({
+    new Location({
         onSample() {
             const sample = this.sample();
-            console.log("Got location: " + sample.latitude + ", " + sample.longitude);
             this.close();
             fetchWeather(sample.latitude, sample.longitude);
         }
@@ -163,8 +155,6 @@ async function fetchWeather(latitude, longitude) {
             longitude,
             current: "temperature_2m,weather_code"
         };
-
-        // Use Fahrenheit if setting is enabled
         if (settings.useFahrenheit) {
             params.temperature_unit = "fahrenheit";
         }
@@ -172,7 +162,6 @@ async function fetchWeather(latitude, longitude) {
         const url = new URL("https://api.open-meteo.com/v1/forecast");
         url.search = new URLSearchParams(params);
 
-        console.log("Fetching weather...");
         const response = await fetch(url);
         const data = await response.json();
 
@@ -181,120 +170,108 @@ async function fetchWeather(latitude, longitude) {
             conditions: getWeatherDescription(data.current.weather_code)
         };
 
-        console.log("Weather: " + weather.temp + ", " + weather.conditions);
         saveWeather();
         drawScreen();
-
     } catch (e) {
         console.log("Weather fetch error: " + e);
     }
 }
 
-// Load cached weather on startup
 loadCachedWeather();
 
-function drawBatteryBar() {
-    const barWidth = (render.unobstructed.width / 2) | 0;
-    const barX = ((render.unobstructed.width - barWidth) / 2) | 0;
-    const barY = render.unobstructed.height < 180 ? 6 : 20;
-    const barHeight = 8;
+// --- Drawing ---
 
-    // Draw border using text color
-    render.fillRectangle(textColor, barX, barY, barWidth, barHeight);
-    render.fillRectangle(bgColor, barX + 1, barY + 1, barWidth - 2, barHeight - 2);
+function drawBluetoothIcon(midX, midY) {
+    if (isConnected) return;
 
-    // Choose color based on battery level
-    let barColor;
-    if (batteryPercent <= 20) {
-        barColor = red;
-    } else if (batteryPercent <= 40) {
-        barColor = yellow;
-    } else {
-        barColor = green;
-    }
+    const length = 8;
+    const thickness = 3;
+    const leftX = midX - length;
+    const rightX = midX + length;
+    const topY = midY - 2 * length;
+    const botY = midY + 2 * length;
 
-    // Draw filled portion
-    const fillWidth = ((batteryPercent * (barWidth - 4)) / 100) | 0;
-    render.fillRectangle(barColor, barX + 2, barY + 2, fillWidth, barHeight - 4);
+    // Vertical spine
+    render.drawLine(midX, topY, midX, botY, red, thickness);
+    // Long diagonal lines
+    render.drawLine(leftX, midY - length, rightX, midY + length, red, thickness);
+    render.drawLine(leftX, midY + length, rightX, midY - length, red, thickness);
+    // Short diagonal lines (top and bottom arrows)
+    render.drawLine(midX, topY, rightX, midY - length, red, thickness);
+    render.drawLine(midX, botY, rightX, midY + length, red, thickness);
 }
 
 function drawScreen(event) {
     const now = event?.date ?? lastDate;
     if (event?.date) lastDate = event.date;
 
+    const w = render.unobstructed.width;
+    const h = render.unobstructed.height;
+
+    // Compute layout positions
+    const timeY = h * 0.30;
+    const dateY = timeY + timeFont.height * 0.86;
+    const weatherY = h - smallFont.height * 2 - 10;
+    const batteryY = h - smallFont.height - 6;
+
     render.begin();
     render.fillRectangle(bgColor, 0, 0, render.width, render.height);
 
-    // Compute layout positions from unobstructed area
-    const blockHeight = timeFont.height + dateFont.height;
-    const timeY = (render.unobstructed.height - blockHeight) / 2;
-    const dateY = timeY + timeFont.height;
+    // Bluetooth icon (top-right area)
+    drawBluetoothIcon(w * 0.82, timeY - 10);
 
-    // Draw battery bar at top
-    drawBatteryBar();
-
-    // Draw Bluetooth disconnect indicator below battery bar
-    if (!isConnected) {
-        const btStr = "X";
-        const btWidth = render.getTextWidth(btStr, smallFont);
-        const btY = render.unobstructed.height < 180 ? 16 : 30;
-        render.drawText(btStr, smallFont, red,
-            (render.unobstructed.width - btWidth) / 2, btY);
-    }
-
-    // Format time as HH:MM (24h) or H:MM (12h)
+    // Time
     let hours = now.getHours();
+    let ampm = "";
     if (!settings.use24Hour) {
+        ampm = hours >= 12 ? " PM" : " AM";
         hours = hours % 12 || 12;
     }
-    const hoursStr = String(hours).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    const timeStr = `${hoursStr}:${minutes}`;
+    const timeStr = `${String(hours)}:${String(now.getMinutes()).padStart(2, "0")}${ampm}`;
+    let tw = render.getTextWidth(timeStr, timeFont);
+    render.drawText(timeStr, timeFont, textColor, (w - tw) / 2, timeY);
 
-    // Draw time centered
-    let width = render.getTextWidth(timeStr, timeFont);
-    render.drawText(timeStr, timeFont, textColor,
-        (render.unobstructed.width - width) / 2, timeY);
-
-    // Draw date if setting is enabled
+    // Date
     if (settings.showDate) {
         const dayName = DAYS[now.getDay()];
         const monthName = MONTHS[now.getMonth()];
         const dateStr = `${dayName} ${monthName} ${String(now.getDate()).padStart(2, "0")}`;
-
-        width = render.getTextWidth(dateStr, dateFont);
-        render.drawText(dateStr, dateFont, textColor,
-            (render.unobstructed.width - width) / 2, dateY);
+        let dw = render.getTextWidth(dateStr, dateFont);
+        render.drawText(dateStr, dateFont, textColor, (w - dw) / 2, dateY);
     }
 
-    // Draw weather at bottom
-    const weatherY = render.unobstructed.height - smallFont.height - (render.unobstructed.height < 180 ? 6 : 20);
+    // Weather
     if (weather) {
         const unit = settings.useFahrenheit ? "F" : "C";
-        const weatherStr = `${weather.temp}°${unit} ${weather.conditions}`;
-        width = render.getTextWidth(weatherStr, smallFont);
-        render.drawText(weatherStr, smallFont, textColor,
-            (render.unobstructed.width - width) / 2, weatherY);
+        const weatherStr = `${weather.temp}\xB0${unit}  ${weather.conditions}`;
+        let ww = render.getTextWidth(weatherStr, smallFont);
+        render.drawText(weatherStr, smallFont, textColor, (w - ww) / 2, weatherY);
     } else {
         const msg = "Loading...";
-        width = render.getTextWidth(msg, smallFont);
-        render.drawText(msg, smallFont, textColor,
-            (render.unobstructed.width - width) / 2, weatherY);
+        let ww = render.getTextWidth(msg, smallFont);
+        render.drawText(msg, smallFont, textColor, (w - ww) / 2, weatherY);
     }
+
+    // Battery percentage
+    let battColor = green;
+    if (batteryPercent <= 20) battColor = red;
+    else if (batteryPercent <= 40) battColor = yellow;
+
+    const battStr = `${batteryPercent}%`;
+    let bw = render.getTextWidth(battStr, smallFont);
+    render.drawText(battStr, smallFont, battColor, (w - bw) / 2, batteryY);
 
     render.end();
 }
 
-// Update every minute (fires immediately when registered)
+// --- Event Listeners ---
+
 watch.addEventListener("minutechange", drawScreen);
-
-// Refresh weather every hour and on startup
 watch.addEventListener("hourchange", requestLocation);
-
-// Redraw when Timeline Quick View changes the unobstructed area
 watch.addEventListener("resize", drawScreen);
 
-// Receive settings from Clay configuration page
+// --- Settings Receiver ---
+
 const message = new Message({
     keys: ["BackgroundColor", "TextColor", "TemperatureUnit", "ShowDate", "HourFormat"],
     onReadable() {
@@ -325,7 +302,6 @@ const message = new Message({
         updateColors();
         drawScreen();
 
-        // Re-fetch weather if temperature unit changed
         if (tu !== undefined) {
             requestLocation();
         }
