@@ -41,7 +41,9 @@ const DEFAULT_SETTINGS = {
     textColor: { r: 255, g: 255, b: 255 },
     useFahrenheit: false,
     showDate: true,
-    use24Hour: true
+    use24Hour: true,
+    vibeOnDisconnect: true,
+    vibeOnConnect: false
 };
 
 function loadSettings() {
@@ -74,22 +76,41 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
 let lastDate = new Date();
 let weather = null;
 let batteryPercent = 100;
+let batteryCharging = false;
 let isConnected = true;
 
 // --- Battery ---
 
 const battery = new Battery({
     onSample() {
-        batteryPercent = this.sample().percent;
+        const sample = this.sample();
+        batteryPercent = sample.percent;
+        batteryCharging = sample.charging;
         drawScreen();
     }
 });
-batteryPercent = battery.sample().percent;
+const initialBattery = battery.sample();
+batteryPercent = initialBattery.percent;
+batteryCharging = initialBattery.charging;
 
 // --- Connection ---
 
+let connectionInitialized = false;
+
 function checkConnection() {
+    const wasConnected = isConnected;
     isConnected = watch.connected.app;
+
+    // Vibrate on connection state changes (skip initial check)
+    if (connectionInitialized) {
+        if (!isConnected && wasConnected && settings.vibeOnDisconnect) {
+            watch.vibrate("long");
+        } else if (isConnected && !wasConnected && settings.vibeOnConnect) {
+            watch.vibrate("double");
+        }
+    }
+    connectionInitialized = true;
+
     drawScreen();
 }
 watch.addEventListener("connected", checkConnection);
@@ -252,12 +273,14 @@ function drawScreen(event) {
         render.drawText(msg, smallFont, textColor, (w - ww) / 2, weatherY);
     }
 
-    // Battery percentage
+    // Battery percentage with charging indicator
     let battColor = green;
     if (batteryPercent <= 20) battColor = red;
     else if (batteryPercent <= 40) battColor = yellow;
 
-    const battStr = `${batteryPercent}%`;
+    const battStr = batteryCharging
+        ? `Charging ${batteryPercent}%`
+        : `${batteryPercent}%`;
     let bw = render.getTextWidth(battStr, smallFont);
     render.drawText(battStr, smallFont, battColor, (w - bw) / 2, batteryY);
 
