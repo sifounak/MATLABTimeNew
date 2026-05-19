@@ -42,6 +42,8 @@ const DEFAULT_SETTINGS = {
     useFahrenheit: false,
     showDate: true,
     use24Hour: true,
+    showBatteryPercent: true,
+    showConditions: true,
     vibeOnDisconnect: true,
     vibeOnConnect: false
 };
@@ -264,7 +266,10 @@ function drawScreen(event) {
     // Weather
     if (weather) {
         const unit = settings.useFahrenheit ? "F" : "C";
-        const weatherStr = `${weather.temp}\xB0${unit}  ${weather.conditions}`;
+        let weatherStr = `${weather.temp}\xB0${unit}`;
+        if (settings.showConditions) {
+            weatherStr += `  ${weather.conditions}`;
+        }
         let ww = render.getTextWidth(weatherStr, smallFont);
         render.drawText(weatherStr, smallFont, textColor, (w - ww) / 2, weatherY);
     } else {
@@ -274,15 +279,17 @@ function drawScreen(event) {
     }
 
     // Battery percentage with charging indicator
-    let battColor = green;
-    if (batteryPercent <= 20) battColor = red;
-    else if (batteryPercent <= 40) battColor = yellow;
+    if (settings.showBatteryPercent || batteryCharging) {
+        let battColor = green;
+        if (batteryPercent <= 20) battColor = red;
+        else if (batteryPercent <= 40) battColor = yellow;
 
-    const battStr = batteryCharging
-        ? `Charging ${batteryPercent}%`
-        : `${batteryPercent}%`;
-    let bw = render.getTextWidth(battStr, smallFont);
-    render.drawText(battStr, smallFont, battColor, (w - bw) / 2, batteryY);
+        const battStr = batteryCharging
+            ? `Charging ${batteryPercent}%`
+            : `${batteryPercent}%`;
+        let bw = render.getTextWidth(battStr, smallFont);
+        render.drawText(battStr, smallFont, battColor, (w - bw) / 2, batteryY);
+    }
 
     render.end();
 }
@@ -296,7 +303,9 @@ watch.addEventListener("resize", drawScreen);
 // --- Settings Receiver ---
 
 const message = new Message({
-    keys: ["BackgroundColor", "TextColor", "TemperatureUnit", "ShowDate", "HourFormat"],
+    keys: ["BackgroundColor", "TextColor", "TemperatureUnit", "ShowDate",
+           "HourFormat", "ShowBatteryPercent", "ShowConditions",
+           "VibeOnDisconnect", "VibeOnConnect"],
     onReadable() {
         const msg = this.read();
 
@@ -319,6 +328,22 @@ const message = new Message({
         const hf = msg.get("HourFormat");
         if (hf !== undefined) {
             settings.use24Hour = hf === 1;
+        }
+        const sbp = msg.get("ShowBatteryPercent");
+        if (sbp !== undefined) {
+            settings.showBatteryPercent = sbp === 1;
+        }
+        const sc = msg.get("ShowConditions");
+        if (sc !== undefined) {
+            settings.showConditions = sc === 1;
+        }
+        const vd = msg.get("VibeOnDisconnect");
+        if (vd !== undefined) {
+            settings.vibeOnDisconnect = vd === 1;
+        }
+        const vc = msg.get("VibeOnConnect");
+        if (vc !== undefined) {
+            settings.vibeOnConnect = vc === 1;
         }
 
         saveSettings();

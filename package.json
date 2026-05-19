@@ -20,7 +20,11 @@
             "TextColor",
             "TemperatureUnit",
             "ShowDate",
-            "HourFormat"
+            "HourFormat",
+            "ShowBatteryPercent",
+            "ShowConditions",
+            "VibeOnDisconnect",
+            "VibeOnConnect"
         ],
         "projectType": "moddable",
         "resources": {

@@ -1,7 +1,7 @@
 module.exports = [
   {
     "type": "heading",
-    "defaultValue": "Watchface Settings"
+    "defaultValue": "MATLAB Time Settings"
   },
   {
     "type": "text",
@@ -33,7 +33,28 @@ module.exports = [
     "items": [
       {
         "type": "heading",
-        "defaultValue": "Preferences"
+        "defaultValue": "Time & Date"
+      },
+      {
+        "type": "toggle",
+        "messageKey": "HourFormat",
+        "label": "Use 24-Hour Format",
+        "defaultValue": true
+      },
+      {
+        "type": "toggle",
+        "messageKey": "ShowDate",
+        "label": "Show Date",
+        "defaultValue": true
+      }
+    ]
+  },
+  {
+    "type": "section",
+    "items": [
+      {
+        "type": "heading",
+        "defaultValue": "Weather"
       },
       {
         "type": "toggle",
@@ -43,15 +64,45 @@ module.exports = [
       },
       {
         "type": "toggle",
-        "messageKey": "ShowDate",
-        "label": "Show Date",
+        "messageKey": "ShowConditions",
+        "label": "Show Weather Conditions",
+        "defaultValue": true
+      }
+    ]
+  },
+  {
+    "type": "section",
+    "items": [
+      {
+        "type": "heading",
+        "defaultValue": "Display"
+      },
+      {
+        "type": "toggle",
+        "messageKey": "ShowBatteryPercent",
+        "label": "Show Battery Percentage",
+        "defaultValue": true
+      }
+    ]
+  },
+  {
+    "type": "section",
+    "items": [
+      {
+        "type": "heading",
+        "defaultValue": "Bluetooth Alerts"
+      },
+      {
+        "type": "toggle",
+        "messageKey": "VibeOnDisconnect",
+        "label": "Vibrate on Disconnect",
         "defaultValue": true
       },
       {
         "type": "toggle",
-        "messageKey": "HourFormat",
-        "label": "Use 24-Hour Format",
-        "defaultValue": true
+        "messageKey": "VibeOnConnect",
+        "label": "Vibrate on Reconnect",
+        "defaultValue": false
       }
     ]
   },
