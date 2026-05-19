@@ -20,12 +20,8 @@ const dateFont = getFont("Olyford-Semi-Bold", 26);
 const smallFont = getFont("Olyford-Semi-Bold", 24);
 
 // --- Logo ---
-// Frame indices match position in package.json media array (0=Logo00, 1=Logo01, etc.)
 
-const LOGO_TOTAL_FRAMES = 20;
-const LOGO_STATIC_FRAME = 0;
-let logoImage = new Poco.PebbleBitmap(LOGO_STATIC_FRAME);
-let logoAnimating = false;
+let logoImage = new Poco.PebbleBitmap(0);
 
 // --- Colors ---
 
@@ -53,8 +49,7 @@ const DEFAULT_SETTINGS = {
     showBatteryPercent: true,
     showConditions: true,
     vibeOnDisconnect: true,
-    vibeOnConnect: false,
-    rotateLogo: 4  // 0=off, 1=minute, 2=hour, 3=shake, 4=100% battery (debug)
+    vibeOnConnect: false
 };
 
 function loadSettings() {
@@ -92,25 +87,16 @@ let isConnected = true;
 
 // --- Battery ---
 
-let prevBatteryPercent = 0;
-
 const battery = new Battery({
     onSample() {
         const sample = this.sample();
-        prevBatteryPercent = batteryPercent;
         batteryPercent = sample.percent;
         batteryCharging = sample.charging;
         drawScreen();
-
-        // Trigger logo animation when battery reaches 100% (debug trigger)
-        if (settings.rotateLogo === 4 && batteryPercent === 100 && prevBatteryPercent < 100) {
-            rotateLogo();
-        }
     }
 });
 const initialBattery = battery.sample();
 batteryPercent = initialBattery.percent;
-prevBatteryPercent = batteryPercent;
 batteryCharging = initialBattery.charging;
 
 // --- Connection ---
@@ -220,41 +206,6 @@ async function fetchWeather(latitude, longitude) {
 
 loadCachedWeather();
 
-// --- Logo Animation ---
-
-function rotateLogo() {
-    if (logoAnimating) return;
-    logoAnimating = true;
-    let frameIndex = 2;
-
-    const intervalId = setInterval(() => {
-        // Load new frame (indices 1-20 in media array)
-        logoImage = new Poco.PebbleBitmap(frameIndex);
-
-        const w = render.unobstructed.width;
-        const logoX = ((w - logoImage.width) / 2) | 0;
-        const logoY = 4;
-
-        render.begin(logoX, logoY, logoImage.width, logoImage.height);
-        render.fillRectangle(bgColor, logoX, logoY, logoImage.width, logoImage.height);
-        render.drawBitmap(logoImage, logoX, logoY);
-        render.end();
-
-        frameIndex += 2;
-        if (frameIndex > LOGO_TOTAL_FRAMES) {
-            // Animation complete — reset to static frame
-            clearInterval(intervalId);
-            logoImage = new Poco.PebbleBitmap(LOGO_STATIC_FRAME);
-            logoAnimating = false;
-
-            // Redraw logo area with static frame
-            render.begin(logoX, logoY, logoImage.width, logoImage.height);
-            render.fillRectangle(bgColor, logoX, logoY, logoImage.width, logoImage.height);
-            render.drawBitmap(logoImage, logoX, logoY);
-            render.end();
-        }
-    }, 100);
-}
 
 // --- Drawing ---
 
@@ -295,11 +246,9 @@ function drawScreen(event) {
     render.fillRectangle(bgColor, 0, 0, render.width, render.height);
 
     // Logo (centered at top)
-    if (!logoAnimating) {
-        const logoX = ((w - logoImage.width) / 2) | 0;
-        const logoY = 4;
-        render.drawBitmap(logoImage, logoX, logoY);
-    }
+    const logoX = ((w - logoImage.width) / 2) | 0;
+    const logoY = 4;
+    render.drawBitmap(logoImage, logoX, logoY);
 
     // Bluetooth icon (top-right area)
     drawBluetoothIcon(w * 0.82, timeY - 10);
@@ -357,29 +306,16 @@ function drawScreen(event) {
 
 // --- Event Listeners ---
 
-watch.addEventListener("minutechange", (event) => {
-    drawScreen(event);
-    if (settings.rotateLogo === 1) rotateLogo();
-});
-
-watch.addEventListener("hourchange", (event) => {
-    requestLocation();
-    if (settings.rotateLogo === 2) rotateLogo();
-});
-
+watch.addEventListener("minutechange", drawScreen);
+watch.addEventListener("hourchange", requestLocation);
 watch.addEventListener("resize", drawScreen);
-
-// Shake/tap trigger for logo animation
-watch.addEventListener("accel-tap", () => {
-    if (settings.rotateLogo === 3) rotateLogo();
-});
 
 // --- Settings Receiver ---
 
 const message = new Message({
     keys: ["BackgroundColor", "TextColor", "TemperatureUnit", "ShowDate",
            "HourFormat", "ShowBatteryPercent", "ShowConditions",
-           "VibeOnDisconnect", "VibeOnConnect", "RotateLogo"],
+           "VibeOnDisconnect", "VibeOnConnect"],
     onReadable() {
         const msg = this.read();
 
@@ -419,11 +355,6 @@ const message = new Message({
         if (vc !== undefined) {
             settings.vibeOnConnect = vc === 1;
         }
-        const rl = msg.get("RotateLogo");
-        if (rl !== undefined) {
-            settings.rotateLogo = rl;
-        }
-
         saveSettings();
         updateColors();
         drawScreen();
