@@ -8,19 +8,19 @@
 	"resources": {
 		"*-alpha": [
 			{
-				"source": "./assets/Olyford-Semi-Bold",
+				"source": "./assets/fonts/Olyford-Semi-Bold",
 				"size": 48,
 				"monochrome": true,
 				"blocks": ["Basic Latin"]
 			},
 			{
-				"source": "./assets/Olyford-Semi-Bold",
+				"source": "./assets/fonts/Olyford-Semi-Bold",
 				"size": 26,
 				"monochrome": true,
 				"blocks": ["Basic Latin"]
 			},
 			{
-				"source": "./assets/Olyford-Semi-Bold",
+				"source": "./assets/fonts/Olyford-Semi-Bold",
 				"size": 24,
 				"monochrome": true,
 				"blocks": ["Basic Latin"]
