@@ -5,10 +5,11 @@ import Battery from "embedded:sensor/Battery";
 import Location from "embedded:sensor/Location";
 import Message from "pebble/message";
 
+console.log("=== Starting ===");
+
 const render = new Poco(screen);
 
 // --- Fonts ---
-
 function getFont(name, size) {
     const font = parseBMF(new Resource(`${name}-${size}.fnt`));
     font.bitmap = parseRLE(new Resource(`${name}-${size}-alpha.bm4`));
@@ -19,12 +20,18 @@ const timeFont = getFont("Olyford-Semi-Bold", 48);
 const dateFont = getFont("Olyford-Semi-Bold", 26);
 const smallFont = getFont("Olyford-Semi-Bold", 24);
 
-// --- Logo ---
+// --- Logo Animation ---
+let logoFrame = 1;
+let logoImage = new Poco.PebbleBitmap(1);
+const TOTAL_FRAMES = 20;
 
-let logoImage = new Poco.PebbleBitmap(0);
+setInterval(() => {
+    logoFrame = logoFrame >= TOTAL_FRAMES ? 1 : logoFrame + 1;
+    logoImage = new Poco.PebbleBitmap(logoFrame);
+    drawScreen();
+}, 50);
 
 // --- Colors ---
-
 const green = render.makeColor(0, 170, 0);
 const yellow = render.makeColor(255, 170, 0);
 const red = render.makeColor(255, 0, 0);
@@ -39,7 +46,6 @@ function updateColors() {
 }
 
 // --- Settings ---
-
 const DEFAULT_SETTINGS = {
     backgroundColor: { r: 0, g: 0, b: 0 },
     textColor: { r: 255, g: 255, b: 255 },
@@ -72,13 +78,11 @@ let settings = loadSettings();
 updateColors();
 
 // --- Constants ---
-
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                 "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 // --- State ---
-
 let lastDate = new Date();
 let weather = null;
 let batteryPercent = 100;
@@ -86,7 +90,6 @@ let batteryCharging = false;
 let isConnected = true;
 
 // --- Battery ---
-
 const battery = new Battery({
     onSample() {
         const sample = this.sample();
@@ -100,14 +103,12 @@ batteryPercent = initialBattery.percent;
 batteryCharging = initialBattery.charging;
 
 // --- Connection ---
-
 let connectionInitialized = false;
 
 function checkConnection() {
     const wasConnected = isConnected;
     isConnected = watch.connected.app;
 
-    // Vibrate on connection state changes (skip initial check)
     if (connectionInitialized) {
         if (!isConnected && wasConnected && settings.vibeOnDisconnect) {
             watch.vibrate("long");
@@ -121,6 +122,153 @@ function checkConnection() {
 }
 watch.addEventListener("connected", checkConnection);
 checkConnection();
+
+// --- Drawing ---
+
+function drawBluetoothIcon(midX, midY) {
+    if (isConnected) return;
+
+    const length = 8;
+    const thickness = 3;
+    const leftX = midX - length;
+    const rightX = midX + length;
+    const topY = midY - 2 * length;
+    const botY = midY + 2 * length;
+
+    render.drawLine(midX, topY, midX, botY, red, thickness);
+    render.drawLine(leftX, midY - length, rightX, midY + length, red, thickness);
+    render.drawLine(leftX, midY + length, rightX, midY - length, red, thickness);
+    render.drawLine(midX, topY, rightX, midY - length, red, thickness);
+    render.drawLine(midX, botY, rightX, midY + length, red, thickness);
+}
+
+function drawScreen(event) {
+    const now = event?.date ?? lastDate;
+    if (event?.date) lastDate = event.date;
+
+    const w = render.unobstructed.width;
+    const h = render.unobstructed.height;
+
+    const timeY = h * 0.30;
+    const dateY = timeY + timeFont.height * 0.86;
+    const weatherY = h - smallFont.height * 2 - 10;
+    const batteryY = h - smallFont.height - 6;
+
+    render.begin();
+    render.fillRectangle(bgColor, 0, 0, render.width, render.height);
+
+    // Logo
+    const logoX = ((w - logoImage.width) / 2) | 0;
+    const logoY = 4;
+    render.drawBitmap(logoImage, logoX, logoY);
+
+    // Bluetooth icon
+    drawBluetoothIcon(w * 0.82, timeY - 10);
+
+    // Time
+    let hours = now.getHours();
+    let ampm = "";
+    if (!settings.use24Hour) {
+        ampm = hours >= 12 ? " PM" : " AM";
+        hours = hours % 12 || 12;
+    }
+    const timeStr = `${String(hours)}:${String(now.getMinutes()).padStart(2, "0")}${ampm}`;
+    let tw = render.getTextWidth(timeStr, timeFont);
+    render.drawText(timeStr, timeFont, textColor, (w - tw) / 2, timeY);
+
+    // Date
+    if (settings.showDate) {
+        const dayName = DAYS[now.getDay()];
+        const monthName = MONTHS[now.getMonth()];
+        const dateStr = `${dayName} ${monthName} ${String(now.getDate()).padStart(2, "0")}`;
+        let dw = render.getTextWidth(dateStr, dateFont);
+        render.drawText(dateStr, dateFont, textColor, (w - dw) / 2, dateY);
+    }
+
+    // Weather
+    if (weather) {
+        const unit = settings.useFahrenheit ? "F" : "C";
+        let weatherStr = `${weather.temp}\xB0${unit}`;
+        if (settings.showConditions) {
+            weatherStr += `  ${weather.conditions}`;
+        }
+        let ww = render.getTextWidth(weatherStr, smallFont);
+        render.drawText(weatherStr, smallFont, textColor, (w - ww) / 2, weatherY);
+    } else {
+        const msg = "Loading...";
+        let ww = render.getTextWidth(msg, smallFont);
+        render.drawText(msg, smallFont, textColor, (w - ww) / 2, weatherY);
+    }
+
+    // Battery
+    if (settings.showBatteryPercent || batteryCharging) {
+        let battColor = green;
+        if (batteryPercent <= 20) battColor = red;
+        else if (batteryPercent <= 40) battColor = yellow;
+
+        const battStr = batteryCharging
+            ? `Charging ${batteryPercent}%`
+            : `${batteryPercent}%`;
+        let bw = render.getTextWidth(battStr, smallFont);
+        render.drawText(battStr, smallFont, battColor, (w - bw) / 2, batteryY);
+    }
+
+    render.end();
+}
+
+// --- Event Listeners ---
+watch.addEventListener("minutechange", drawScreen);
+watch.addEventListener("resize", drawScreen);
+
+// --- Settings Receiver ---
+const message = new Message({
+    keys: ["BackgroundColor", "TextColor", "TemperatureUnit", "ShowDate",
+           "HourFormat", "ShowBatteryPercent", "ShowConditions",
+           "VibeOnDisconnect", "VibeOnConnect"],
+    onReadable() {
+        const msg = this.read();
+
+        const bg = msg.get("BackgroundColor");
+        if (bg !== undefined) {
+            settings.backgroundColor = { r: (bg >> 16) & 0xFF, g: (bg >> 8) & 0xFF, b: bg & 0xFF };
+        }
+        const tc = msg.get("TextColor");
+        if (tc !== undefined) {
+            settings.textColor = { r: (tc >> 16) & 0xFF, g: (tc >> 8) & 0xFF, b: tc & 0xFF };
+        }
+        const tu = msg.get("TemperatureUnit");
+        if (tu !== undefined) {
+            settings.useFahrenheit = tu === 1;
+        }
+        const sd = msg.get("ShowDate");
+        if (sd !== undefined) {
+            settings.showDate = sd === 1;
+        }
+        const hf = msg.get("HourFormat");
+        if (hf !== undefined) {
+            settings.use24Hour = hf === 1;
+        }
+        const sbp = msg.get("ShowBatteryPercent");
+        if (sbp !== undefined) {
+            settings.showBatteryPercent = sbp === 1;
+        }
+        const sc = msg.get("ShowConditions");
+        if (sc !== undefined) {
+            settings.showConditions = sc === 1;
+        }
+        const vd = msg.get("VibeOnDisconnect");
+        if (vd !== undefined) {
+            settings.vibeOnDisconnect = vd === 1;
+        }
+        const vc = msg.get("VibeOnConnect");
+        if (vc !== undefined) {
+            settings.vibeOnConnect = vc === 1;
+        }
+        saveSettings();
+        updateColors();
+        drawScreen();
+    }
+});
 
 // --- Weather ---
 
@@ -206,161 +354,7 @@ async function fetchWeather(latitude, longitude) {
 
 loadCachedWeather();
 
-
-// --- Drawing ---
-
-function drawBluetoothIcon(midX, midY) {
-    if (isConnected) return;
-
-    const length = 8;
-    const thickness = 3;
-    const leftX = midX - length;
-    const rightX = midX + length;
-    const topY = midY - 2 * length;
-    const botY = midY + 2 * length;
-
-    // Vertical spine
-    render.drawLine(midX, topY, midX, botY, red, thickness);
-    // Long diagonal lines
-    render.drawLine(leftX, midY - length, rightX, midY + length, red, thickness);
-    render.drawLine(leftX, midY + length, rightX, midY - length, red, thickness);
-    // Short diagonal lines (top and bottom arrows)
-    render.drawLine(midX, topY, rightX, midY - length, red, thickness);
-    render.drawLine(midX, botY, rightX, midY + length, red, thickness);
-}
-
-function drawScreen(event) {
-    const now = event?.date ?? lastDate;
-    if (event?.date) lastDate = event.date;
-
-    const w = render.unobstructed.width;
-    const h = render.unobstructed.height;
-
-    // Compute layout positions
-    const timeY = h * 0.30;
-    const dateY = timeY + timeFont.height * 0.86;
-    const weatherY = h - smallFont.height * 2 - 10;
-    const batteryY = h - smallFont.height - 6;
-
-    render.begin();
-    render.fillRectangle(bgColor, 0, 0, render.width, render.height);
-
-    // Logo (centered at top)
-    const logoX = ((w - logoImage.width) / 2) | 0;
-    const logoY = 4;
-    render.drawBitmap(logoImage, logoX, logoY);
-
-    // Bluetooth icon (top-right area)
-    drawBluetoothIcon(w * 0.82, timeY - 10);
-
-    // Time
-    let hours = now.getHours();
-    let ampm = "";
-    if (!settings.use24Hour) {
-        ampm = hours >= 12 ? " PM" : " AM";
-        hours = hours % 12 || 12;
-    }
-    const timeStr = `${String(hours)}:${String(now.getMinutes()).padStart(2, "0")}${ampm}`;
-    let tw = render.getTextWidth(timeStr, timeFont);
-    render.drawText(timeStr, timeFont, textColor, (w - tw) / 2, timeY);
-
-    // Date
-    if (settings.showDate) {
-        const dayName = DAYS[now.getDay()];
-        const monthName = MONTHS[now.getMonth()];
-        const dateStr = `${dayName} ${monthName} ${String(now.getDate()).padStart(2, "0")}`;
-        let dw = render.getTextWidth(dateStr, dateFont);
-        render.drawText(dateStr, dateFont, textColor, (w - dw) / 2, dateY);
-    }
-
-    // Weather
-    if (weather) {
-        const unit = settings.useFahrenheit ? "F" : "C";
-        let weatherStr = `${weather.temp}\xB0${unit}`;
-        if (settings.showConditions) {
-            weatherStr += `  ${weather.conditions}`;
-        }
-        let ww = render.getTextWidth(weatherStr, smallFont);
-        render.drawText(weatherStr, smallFont, textColor, (w - ww) / 2, weatherY);
-    } else {
-        const msg = "Loading...";
-        let ww = render.getTextWidth(msg, smallFont);
-        render.drawText(msg, smallFont, textColor, (w - ww) / 2, weatherY);
-    }
-
-    // Battery percentage with charging indicator
-    if (settings.showBatteryPercent || batteryCharging) {
-        let battColor = green;
-        if (batteryPercent <= 20) battColor = red;
-        else if (batteryPercent <= 40) battColor = yellow;
-
-        const battStr = batteryCharging
-            ? `Charging ${batteryPercent}%`
-            : `${batteryPercent}%`;
-        let bw = render.getTextWidth(battStr, smallFont);
-        render.drawText(battStr, smallFont, battColor, (w - bw) / 2, batteryY);
-    }
-
-    render.end();
-}
-
-// --- Event Listeners ---
-
-watch.addEventListener("minutechange", drawScreen);
+// --- Initial Draw ---
+drawScreen();
 watch.addEventListener("hourchange", requestLocation);
-watch.addEventListener("resize", drawScreen);
-
-// --- Settings Receiver ---
-
-const message = new Message({
-    keys: ["BackgroundColor", "TextColor", "TemperatureUnit", "ShowDate",
-           "HourFormat", "ShowBatteryPercent", "ShowConditions",
-           "VibeOnDisconnect", "VibeOnConnect"],
-    onReadable() {
-        const msg = this.read();
-
-        const bg = msg.get("BackgroundColor");
-        if (bg !== undefined) {
-            settings.backgroundColor = { r: (bg >> 16) & 0xFF, g: (bg >> 8) & 0xFF, b: bg & 0xFF };
-        }
-        const tc = msg.get("TextColor");
-        if (tc !== undefined) {
-            settings.textColor = { r: (tc >> 16) & 0xFF, g: (tc >> 8) & 0xFF, b: tc & 0xFF };
-        }
-        const tu = msg.get("TemperatureUnit");
-        if (tu !== undefined) {
-            settings.useFahrenheit = tu === 1;
-        }
-        const sd = msg.get("ShowDate");
-        if (sd !== undefined) {
-            settings.showDate = sd === 1;
-        }
-        const hf = msg.get("HourFormat");
-        if (hf !== undefined) {
-            settings.use24Hour = hf === 1;
-        }
-        const sbp = msg.get("ShowBatteryPercent");
-        if (sbp !== undefined) {
-            settings.showBatteryPercent = sbp === 1;
-        }
-        const sc = msg.get("ShowConditions");
-        if (sc !== undefined) {
-            settings.showConditions = sc === 1;
-        }
-        const vd = msg.get("VibeOnDisconnect");
-        if (vd !== undefined) {
-            settings.vibeOnDisconnect = vd === 1;
-        }
-        const vc = msg.get("VibeOnConnect");
-        if (vc !== undefined) {
-            settings.vibeOnConnect = vc === 1;
-        }
-        saveSettings();
-        updateColors();
-        drawScreen();
-
-        if (tu !== undefined) {
-            requestLocation();
-        }
-    }
-});
+console.log("=== Watchface running ===");
