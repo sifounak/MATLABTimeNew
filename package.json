@@ -29,26 +29,7 @@
         "projectType": "moddable",
         "resources": {
             "media": [
-                { "file": "images/Logo01.png", "name": "Logo01", "type": "bitmap" },
-                { "file": "images/Logo02.png", "name": "Logo02", "type": "bitmap" },
-                { "file": "images/Logo03.png", "name": "Logo03", "type": "bitmap" },
-                { "file": "images/Logo04.png", "name": "Logo04", "type": "bitmap" },
-                { "file": "images/Logo05.png", "name": "Logo05", "type": "bitmap" },
-                { "file": "images/Logo06.png", "name": "Logo06", "type": "bitmap" },
-                { "file": "images/Logo07.png", "name": "Logo07", "type": "bitmap" },
-                { "file": "images/Logo08.png", "name": "Logo08", "type": "bitmap" },
-                { "file": "images/Logo09.png", "name": "Logo09", "type": "bitmap" },
-                { "file": "images/Logo10.png", "name": "Logo10", "type": "bitmap" },
-                { "file": "images/Logo11.png", "name": "Logo11", "type": "bitmap" },
-                { "file": "images/Logo12.png", "name": "Logo12", "type": "bitmap" },
-                { "file": "images/Logo13.png", "name": "Logo13", "type": "bitmap" },
-                { "file": "images/Logo14.png", "name": "Logo14", "type": "bitmap" },
-                { "file": "images/Logo15.png", "name": "Logo15", "type": "bitmap" },
-                { "file": "images/Logo16.png", "name": "Logo16", "type": "bitmap" },
-                { "file": "images/Logo17.png", "name": "Logo17", "type": "bitmap" },
-                { "file": "images/Logo18.png", "name": "Logo18", "type": "bitmap" },
-                { "file": "images/Logo19.png", "name": "Logo19", "type": "bitmap" },
-                { "file": "images/Logo20.png", "name": "Logo20", "type": "bitmap" }
+                { "file": "data/Logo_Animation.png", "name": "LOGO_ANIMATION", "type": "raw" }
             ]
         },
         "sdkVersion": "3",

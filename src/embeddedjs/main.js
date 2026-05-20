@@ -22,50 +22,11 @@ const fonts = {
     small: getFont("Olyford-Semi-Bold", 16)
 };
 
-// --- Logo ---
-const logo = {
-    frameCount: 20,
-    image: new Poco.PebbleBitmap(1),
-    animating: false
-};
-
 function fillBackground() {
-    // Fill entire screen with background color
-    // After this, logo and other elements must be redrawn
+    // Fill entire screen with background color; C logo layer redraws on top
     render.begin();
     render.fillRectangle(colors.bg, 0, 0, render.width, render.height);
     render.end();
-}
-
-function drawLogo() {
-    const w = render.unobstructed.width;
-    const timeY = render.unobstructed.height / 2 - fonts.time.height * 0.25;
-    const logoX = ((w - logo.image.width) / 2) | 0;
-    const logoY = (((timeY - logo.image.height) / 2) + 5) | 0;
-    render.begin(logoX, logoY, logo.image.width, logo.image.height);
-    render.fillRectangle(colors.bg, logoX, logoY, logo.image.width, logo.image.height);
-    render.drawBitmap(logo.image, logoX, logoY);
-    render.end();
-}
-
-function animateLogo() {
-    if (logo.animating) return;
-    logo.animating = true;
-    let frameIdx = 2;
-
-    function nextFrame() {
-        if (frameIdx > logo.frameCount) {
-            logo.animating = false;
-            logo.image = new Poco.PebbleBitmap(1);
-            drawLogo();
-            return;
-        }
-        logo.image = new Poco.PebbleBitmap(frameIdx);
-        frameIdx++;
-        drawLogo();
-        setTimeout(nextFrame, 200);
-    }
-    setTimeout(nextFrame, 200);
 }
 
 // --- Colors ---
@@ -269,14 +230,8 @@ function drawScreen(event) {
 }
 
 // --- Event Listeners ---
-let firstMinuteChange = true;
 watch.addEventListener("minutechange", (event) => {
     drawScreen(event);
-    if (firstMinuteChange) {
-        firstMinuteChange = false;
-        return;
-    }
-    animateLogo();
 });
 watch.addEventListener("resize", drawScreen);
 
@@ -328,7 +283,6 @@ const message = new Message({
         updateColors();
         fillBackground();
         drawScreen();
-        drawLogo();
     }
 });
 
@@ -420,7 +374,6 @@ loadCachedWeather();
 // --- Initial Draw ---
 fillBackground();
 drawScreen();
-drawLogo();
 watch.addEventListener("hourchange", requestLocation);
 
 

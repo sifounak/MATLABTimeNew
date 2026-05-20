@@ -8,6 +8,7 @@ cd ~/MATLAB_Time_New
 rm -rf build
 find /var/tmp/pebble-sdk -name "*.xsa" -delete 2>/dev/null
 pebble wipe
+pebble clean
 pebble build
 pebble install --emulator gabbro
 cd "$origDir"
