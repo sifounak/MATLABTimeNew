@@ -16,32 +16,71 @@ function getFont(name, size) {
     return font;
 }
 
-const timeFont = getFont("Olyford-Semi-Bold", 48);
-const dateFont = getFont("Olyford-Semi-Bold", 26);
-const smallFont = getFont("Olyford-Semi-Bold", 24);
+const fonts = {
+    time: getFont("Olyford-Semi-Bold", 48),
+    date: getFont("Olyford-Semi-Bold", 26),
+    small: getFont("Olyford-Semi-Bold", 16)
+};
 
-// --- Logo Animation ---
-let logoFrame = 1;
-let logoImage = new Poco.PebbleBitmap(1);
-const TOTAL_FRAMES = 20;
+// --- Logo ---
+const logo = {
+    frameCount: 20,
+    image: new Poco.PebbleBitmap(1),
+    animating: false
+};
 
-setInterval(() => {
-    logoFrame = logoFrame >= TOTAL_FRAMES ? 1 : logoFrame + 1;
-    logoImage = new Poco.PebbleBitmap(logoFrame);
-    drawScreen();
-}, 50);
+function fillBackground() {
+    // Fill entire screen with background color
+    // After this, logo and other elements must be redrawn
+    render.begin();
+    render.fillRectangle(colors.bg, 0, 0, render.width, render.height);
+    render.end();
+}
+
+function drawLogo() {
+    const w = render.unobstructed.width;
+    const timeY = render.unobstructed.height / 2 - fonts.time.height * 0.25;
+    const logoX = ((w - logo.image.width) / 2) | 0;
+    const logoY = (((timeY - logo.image.height) / 2) + 5) | 0;
+    render.begin(logoX, logoY, logo.image.width, logo.image.height);
+    render.fillRectangle(colors.bg, logoX, logoY, logo.image.width, logo.image.height);
+    render.drawBitmap(logo.image, logoX, logoY);
+    render.end();
+}
+
+function animateLogo() {
+    if (logo.animating) return;
+    logo.animating = true;
+    let frameIdx = 2;
+
+    function nextFrame() {
+        if (frameIdx > logo.frameCount) {
+            logo.animating = false;
+            logo.image = new Poco.PebbleBitmap(1);
+            drawLogo();
+            return;
+        }
+        logo.image = new Poco.PebbleBitmap(frameIdx);
+        frameIdx++;
+        drawLogo();
+        setTimeout(nextFrame, 200);
+    }
+    setTimeout(nextFrame, 200);
+}
 
 // --- Colors ---
-const green = render.makeColor(0, 170, 0);
-const yellow = render.makeColor(255, 170, 0);
-const red = render.makeColor(255, 0, 0);
-
-let bgColor, textColor;
+const colors = {
+    green: render.makeColor(0, 170, 0),
+    yellow: render.makeColor(255, 170, 0),
+    red: render.makeColor(255, 0, 0),
+    bg: null,
+    text: null
+};
 
 function updateColors() {
-    bgColor = render.makeColor(settings.backgroundColor.r,
+    colors.bg = render.makeColor(settings.backgroundColor.r,
         settings.backgroundColor.g, settings.backgroundColor.b);
-    textColor = render.makeColor(settings.textColor.r,
+    colors.text = render.makeColor(settings.textColor.r,
         settings.textColor.g, settings.textColor.b);
 }
 
@@ -49,9 +88,9 @@ function updateColors() {
 const DEFAULT_SETTINGS = {
     backgroundColor: { r: 0, g: 0, b: 0 },
     textColor: { r: 255, g: 255, b: 255 },
-    useFahrenheit: false,
+    useFahrenheit: true,
     showDate: true,
-    use24Hour: true,
+    use24Hour: false,
     showBatteryPercent: true,
     showConditions: true,
     vibeOnDisconnect: true,
@@ -82,41 +121,49 @@ const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                 "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+// --- Layout constants ---
+const screenW = render.unobstructed.width;
+const screenH = render.unobstructed.height;
+const _timeY = screenH / 2 - fonts.time.height * 0.25;
+const _logoY = (((_timeY - 90) / 2) + 5) | 0;
+const LOGO_BOTTOM = _logoY + 90;
+
 // --- State ---
-let lastDate = new Date();
-let weather = null;
-let batteryPercent = 100;
-let batteryCharging = false;
-let isConnected = true;
+const state = {
+    lastDate: new Date(),
+    weather: null,
+    batteryPercent: 100,
+    batteryCharging: false,
+    isConnected: true,
+    connectionInitialized: false
+};
 
 // --- Battery ---
 const battery = new Battery({
     onSample() {
         const sample = this.sample();
-        batteryPercent = sample.percent;
-        batteryCharging = sample.charging;
+        state.batteryPercent = sample.percent;
+        state.batteryCharging = sample.charging;
         drawScreen();
     }
 });
 const initialBattery = battery.sample();
-batteryPercent = initialBattery.percent;
-batteryCharging = initialBattery.charging;
+state.batteryPercent = initialBattery.percent;
+state.batteryCharging = initialBattery.charging;
 
 // --- Connection ---
-let connectionInitialized = false;
-
 function checkConnection() {
-    const wasConnected = isConnected;
-    isConnected = watch.connected.app;
+    const wasConnected = state.isConnected;
+    state.isConnected = watch.connected.app;
 
-    if (connectionInitialized) {
-        if (!isConnected && wasConnected && settings.vibeOnDisconnect) {
+    if (state.connectionInitialized) {
+        if (!state.isConnected && wasConnected && settings.vibeOnDisconnect) {
             watch.vibrate("long");
-        } else if (isConnected && !wasConnected && settings.vibeOnConnect) {
+        } else if (state.isConnected && !wasConnected && settings.vibeOnConnect) {
             watch.vibrate("double");
         }
     }
-    connectionInitialized = true;
+    state.connectionInitialized = true;
 
     drawScreen();
 }
@@ -125,8 +172,9 @@ checkConnection();
 
 // --- Drawing ---
 
+
 function drawBluetoothIcon(midX, midY) {
-    if (isConnected) return;
+    if (state.isConnected) return;
 
     const length = 8;
     const thickness = 3;
@@ -135,35 +183,36 @@ function drawBluetoothIcon(midX, midY) {
     const topY = midY - 2 * length;
     const botY = midY + 2 * length;
 
-    render.drawLine(midX, topY, midX, botY, red, thickness);
-    render.drawLine(leftX, midY - length, rightX, midY + length, red, thickness);
-    render.drawLine(leftX, midY + length, rightX, midY - length, red, thickness);
-    render.drawLine(midX, topY, rightX, midY - length, red, thickness);
-    render.drawLine(midX, botY, rightX, midY + length, red, thickness);
+    // Own render pass for bluetooth (above LOGO_BOTTOM)
+    const iconLeft = leftX - thickness;
+    const iconTop = topY - thickness;
+    const iconW = (rightX - leftX) + thickness * 2;
+    const iconH = (botY - topY) + thickness * 2;
+    render.begin(iconLeft, iconTop, iconW, iconH);
+    render.fillRectangle(colors.bg, iconLeft, iconTop, iconW, iconH);
+    render.drawLine(midX, topY, midX, botY, colors.red, thickness);
+    render.drawLine(leftX, midY - length, rightX, midY + length, colors.red, thickness);
+    render.drawLine(leftX, midY + length, rightX, midY - length, colors.red, thickness);
+    render.drawLine(midX, topY, rightX, midY - length, colors.red, thickness);
+    render.drawLine(midX, botY, rightX, midY + length, colors.red, thickness);
+    render.end();
 }
 
 function drawScreen(event) {
-    const now = event?.date ?? lastDate;
-    if (event?.date) lastDate = event.date;
+    const now = event?.date ?? state.lastDate;
+    if (event?.date) state.lastDate = event.date;
 
-    const w = render.unobstructed.width;
-    const h = render.unobstructed.height;
+    const w = screenW;
+    const h = screenH;
 
-    const timeY = h * 0.30;
-    const dateY = timeY + timeFont.height * 0.86;
-    const weatherY = h - smallFont.height * 2 - 10;
-    const batteryY = h - smallFont.height - 6;
+    const timeY = h / 2 - fonts.time.height * 0.25;
+    const dateY = timeY + fonts.time.height * 0.86;
+    const weatherY = h - fonts.small.height * 2 - 10;
+    const batteryY = h - fonts.small.height - 10;
 
-    render.begin();
-    render.fillRectangle(bgColor, 0, 0, render.width, render.height);
-
-    // Logo
-    const logoX = ((w - logoImage.width) / 2) | 0;
-    const logoY = 4;
-    render.drawBitmap(logoImage, logoX, logoY);
-
-    // Bluetooth icon
-    drawBluetoothIcon(w * 0.82, timeY - 10);
+    // Main render pass: everything below the logo area
+    render.begin(0, LOGO_BOTTOM, w, h - LOGO_BOTTOM);
+    render.fillRectangle(colors.bg, 0, LOGO_BOTTOM, w, h - LOGO_BOTTOM);
 
     // Time
     let hours = now.getHours();
@@ -173,51 +222,62 @@ function drawScreen(event) {
         hours = hours % 12 || 12;
     }
     const timeStr = `${String(hours)}:${String(now.getMinutes()).padStart(2, "0")}${ampm}`;
-    let tw = render.getTextWidth(timeStr, timeFont);
-    render.drawText(timeStr, timeFont, textColor, (w - tw) / 2, timeY);
+    let tw = render.getTextWidth(timeStr, fonts.time);
+    render.drawText(timeStr, fonts.time, colors.text, (w - tw) / 2, timeY);
 
     // Date
     if (settings.showDate) {
         const dayName = DAYS[now.getDay()];
         const monthName = MONTHS[now.getMonth()];
         const dateStr = `${dayName} ${monthName} ${String(now.getDate()).padStart(2, "0")}`;
-        let dw = render.getTextWidth(dateStr, dateFont);
-        render.drawText(dateStr, dateFont, textColor, (w - dw) / 2, dateY);
-    }
-
-    // Weather
-    if (weather) {
-        const unit = settings.useFahrenheit ? "F" : "C";
-        let weatherStr = `${weather.temp}\xB0${unit}`;
-        if (settings.showConditions) {
-            weatherStr += `  ${weather.conditions}`;
-        }
-        let ww = render.getTextWidth(weatherStr, smallFont);
-        render.drawText(weatherStr, smallFont, textColor, (w - ww) / 2, weatherY);
-    } else {
-        const msg = "Loading...";
-        let ww = render.getTextWidth(msg, smallFont);
-        render.drawText(msg, smallFont, textColor, (w - ww) / 2, weatherY);
+        let dw = render.getTextWidth(dateStr, fonts.date);
+        render.drawText(dateStr, fonts.date, colors.text, (w - dw) / 2, dateY);
     }
 
     // Battery
-    if (settings.showBatteryPercent || batteryCharging) {
-        let battColor = green;
-        if (batteryPercent <= 20) battColor = red;
-        else if (batteryPercent <= 40) battColor = yellow;
+    const battStr = (settings.showBatteryPercent || state.batteryCharging)
+        ? (state.batteryCharging ? `Charging ${state.batteryPercent}%` : `${state.batteryPercent}%`)
+        : "";
+    const bw = render.getTextWidth(battStr, fonts.small);
+    const battX = (w - bw) / 2;
+    if (battStr) {
+        render.drawText(battStr, fonts.small, colors.text, battX, batteryY);
+    }
 
-        const battStr = batteryCharging
-            ? `Charging ${batteryPercent}%`
-            : `${batteryPercent}%`;
-        let bw = render.getTextWidth(battStr, smallFont);
-        render.drawText(battStr, smallFont, battColor, (w - bw) / 2, batteryY);
+    // Weather (flanking battery text)
+    if (state.weather) {
+        const unit = settings.useFahrenheit ? "F" : "C";
+        const tempStr = `${state.weather.temp}\xB0${unit}`;
+        const uvStr = `UV ${state.weather.uv}`;
+
+        const weatherRowY = batteryY - fonts.small.height / 2;
+        const tempW = render.getTextWidth(tempStr, fonts.small);
+        render.drawText(tempStr, fonts.small, colors.text, battX - 7 - tempW, weatherRowY);
+
+        const uvX = battX + bw + 7;
+        render.drawText(uvStr, fonts.small, colors.text, uvX, weatherRowY);
+    } else {
+        const msg = "Loading...";
+        let ww = render.getTextWidth(msg, fonts.small);
+        render.drawText(msg, fonts.small, colors.text, (w - ww) / 2, weatherY);
     }
 
     render.end();
+
+    // Bluetooth icon gets its own render pass (it's above LOGO_BOTTOM)
+    drawBluetoothIcon(w * 0.82, timeY - 10);
 }
 
 // --- Event Listeners ---
-watch.addEventListener("minutechange", drawScreen);
+let firstMinuteChange = true;
+watch.addEventListener("minutechange", (event) => {
+    drawScreen(event);
+    if (firstMinuteChange) {
+        firstMinuteChange = false;
+        return;
+    }
+    animateLogo();
+});
 watch.addEventListener("resize", drawScreen);
 
 // --- Settings Receiver ---
@@ -266,7 +326,9 @@ const message = new Message({
         }
         saveSettings();
         updateColors();
+        fillBackground();
         drawScreen();
+        drawLogo();
     }
 });
 
@@ -296,7 +358,7 @@ function loadCachedWeather() {
         const age = Date.now() - Number(cachedTime);
         if (age < 60 * 60 * 1000) {
             try {
-                weather = JSON.parse(cached);
+                state.weather = JSON.parse(cached);
                 return true;
             } catch (e) {
                 console.log("Failed to parse cached weather");
@@ -307,8 +369,8 @@ function loadCachedWeather() {
 }
 
 function saveWeather() {
-    if (weather) {
-        localStorage.setItem("weather", JSON.stringify(weather));
+    if (state.weather) {
+        localStorage.setItem("weather", JSON.stringify(state.weather));
         localStorage.setItem("weatherTime", String(Date.now()));
     }
 }
@@ -328,7 +390,7 @@ async function fetchWeather(latitude, longitude) {
         const params = {
             latitude,
             longitude,
-            current: "temperature_2m,weather_code"
+            current: "temperature_2m,weather_code,uv_index"
         };
         if (settings.useFahrenheit) {
             params.temperature_unit = "fahrenheit";
@@ -340,9 +402,10 @@ async function fetchWeather(latitude, longitude) {
         const response = await fetch(url);
         const data = await response.json();
 
-        weather = {
+        state.weather = {
             temp: Math.round(data.current.temperature_2m),
-            conditions: getWeatherDescription(data.current.weather_code)
+            conditions: getWeatherDescription(data.current.weather_code),
+            uv: Math.round(data.current.uv_index)
         };
 
         saveWeather();
@@ -355,6 +418,10 @@ async function fetchWeather(latitude, longitude) {
 loadCachedWeather();
 
 // --- Initial Draw ---
+fillBackground();
 drawScreen();
+drawLogo();
 watch.addEventListener("hourchange", requestLocation);
+
+
 console.log("=== Watchface running ===");

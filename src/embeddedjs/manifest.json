@@ -21,9 +21,9 @@
 			},
 			{
 				"source": "./assets/fonts/Olyford-Semi-Bold",
-				"size": 24,
+				"size": 16,
 				"monochrome": true,
-				"blocks": ["Basic Latin"]
+				"blocks": ["Basic Latin", "Latin-1 Supplement"]
 			}
 		]
 	}
