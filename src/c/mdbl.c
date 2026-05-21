@@ -68,9 +68,10 @@ int main(void) {
   // Position logo to match JS layout:
   // timeY = screenH/2 - fontHeight*0.25, logoY = (timeY - logoH) / 2 + 5
   GRect bounds = layer_get_bounds(window_get_root_layer(s_window));
+  bool is_emery = bounds.size.w >= 200;
   int time_y = bounds.size.h / 2 - 12;  // 48 * 0.25 = 12
   int logo_x = (bounds.size.w - logo_size.w) / 2;
-  int logo_y = (time_y - logo_size.h) / 2 + 5;
+  int logo_y = (time_y - logo_size.h) / 2 + 5 + (is_emery ? 5 : 0);
   s_logo_bitmap_layer = bitmap_layer_create(GRect(logo_x, logo_y, logo_size.w, logo_size.h));
   bitmap_layer_set_compositing_mode(s_logo_bitmap_layer, GCompOpSet);
   bitmap_layer_set_background_color(s_logo_bitmap_layer, s_bg_color);
