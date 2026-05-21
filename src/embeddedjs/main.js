@@ -10,7 +10,8 @@ console.log("=== Starting ===");
 const render = new Poco(screen);
 
 // --- Platform detection ---
-const isEmery = render.width >= 200;
+// Emery is 200x228 (rectangular), gabbro is 260x260 (round)
+const isEmery = render.height > render.width;
 
 // --- Fonts ---
 function getFont(name, size) {
