@@ -57,9 +57,9 @@ const DEFAULT_SETTINGS = {
     useCelsius: false,
     dateFormat: 0,
     use24Hour: false,
-    complicationLeft: 1,
-    complicationMiddle: 2,
-    complicationRight: 3,
+    complicationLeft: 3,
+    complicationMiddle: 1,
+    complicationRight: 2,
     vibeOnDisconnect: true,
     vibeOnConnect: true
 };
