@@ -247,18 +247,19 @@ function drawScreen(event) {
             render.drawText(rightStr, fonts.small, colors.text, w - rw - 15, batteryY);
         }
     } else {
-        // Gabbro: center the middle, flank left/right beside it
+        // Gabbro: center the middle, flank left/right beside it (offset up)
         const midW = middleStr ? render.getTextWidth(middleStr, fonts.small) : 0;
         const midX = (w - midW) / 2;
+        const flankY = batteryY - fonts.small.height / 2;
         if (middleStr) {
             render.drawText(middleStr, fonts.small, colors.text, midX, batteryY);
         }
         if (leftStr) {
             const lw = render.getTextWidth(leftStr, fonts.small);
-            render.drawText(leftStr, fonts.small, colors.text, midX - 7 - lw, batteryY);
+            render.drawText(leftStr, fonts.small, colors.text, midX - 7 - lw, flankY);
         }
         if (rightStr) {
-            render.drawText(rightStr, fonts.small, colors.text, midX + midW + 7, batteryY);
+            render.drawText(rightStr, fonts.small, colors.text, midX + midW + 7, flankY);
         }
     }
 
