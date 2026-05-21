@@ -54,8 +54,8 @@ module.exports = [
         "label": "Temperature",
         "defaultValue": "F",
         "options": [
-          { "label": "Fahrenheit", "value": "F" },
-          { "label": "Celsius", "value": "C" }
+          { "label": "Celsius", "value": "C" },
+          { "label": "Fahrenheit", "value": "F" }
         ]
       }
     ]
