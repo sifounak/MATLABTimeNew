@@ -223,6 +223,9 @@ function drawScreen(event) {
     // Complications
     function getComplicationStr(type) {
         if (type === 1 && state.weather) {
+            if (settings.temperatureUnit === "K") {
+                return `${state.weather.temp} K`;
+            }
             const unit = settings.temperatureUnit === "C" ? "C" : "F";
             return `${state.weather.temp}\xB0${unit}`;
         }
@@ -299,7 +302,7 @@ const message = new Message({
         }
         const tu = msg.get("TemperatureUnit");
         if (tu !== undefined) {
-            settings.temperatureUnit = tu === "C" || tu === 1 ? "C" : "F";
+            settings.temperatureUnit = tu === "C" ? "C" : tu === "K" ? "K" : "F";
         }
         const df = msg.get("DateFormat");
         if (df !== undefined) {
@@ -392,15 +395,20 @@ function requestLocation() {
 async function fetchWeather(latitude, longitude) {
     try {
         let url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m%2Cweather_code%2Cuv_index`;
-        if (settings.temperatureUnit !== "C") {
+        if (settings.temperatureUnit === "F") {
             url += "&temperature_unit=fahrenheit";
         }
 
         const response = await fetch(url);
         const data = await response.json();
 
+        let temp = Math.round(data.current.temperature_2m);
+        if (settings.temperatureUnit === "K") {
+            temp = Math.round(data.current.temperature_2m + 273.15);
+        }
+
         state.weather = {
-            temp: Math.round(data.current.temperature_2m),
+            temp,
             conditions: getWeatherDescription(data.current.weather_code),
             uv: Math.round(data.current.uv_index)
         };

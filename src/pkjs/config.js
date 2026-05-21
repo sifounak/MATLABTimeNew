@@ -34,7 +34,7 @@ module.exports = [
       {
         "type": "toggle",
         "messageKey": "HourFormat",
-        "label": "Use 24-Hour Format",
+        "label": "24-Hour Clock",
         "defaultValue": false
       },
       {
@@ -55,7 +55,8 @@ module.exports = [
         "defaultValue": "F",
         "options": [
           { "label": "Celsius", "value": "C" },
-          { "label": "Fahrenheit", "value": "F" }
+          { "label": "Fahrenheit", "value": "F" },
+          { "label": "Kelvin", "value": "K" }
         ]
       }
     ]
