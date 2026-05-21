@@ -65,12 +65,6 @@ const DEFAULT_SETTINGS = {
 };
 
 function loadSettings() {
-    // One-time migration: clear old settings format (remove after deploy)
-    const migrated = localStorage.getItem("settingsV2");
-    if (!migrated) {
-        localStorage.removeItem("settings");
-        localStorage.setItem("settingsV2", "1");
-    }
     const stored = localStorage.getItem("settings");
     if (stored) {
         try {
