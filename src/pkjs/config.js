@@ -62,18 +62,51 @@ module.exports = [
         "messageKey": "UseCelsius",
         "label": "Use Celsius",
         "defaultValue": false
+      }
+    ]
+  },
+  {
+    "type": "section",
+    "items": [
+      {
+        "type": "heading",
+        "defaultValue": "Complications"
       },
       {
-        "type": "toggle",
-        "messageKey": "ShowUV",
-        "label": "Show UV Index",
-        "defaultValue": true
+        "type": "select",
+        "messageKey": "ComplicationLeft",
+        "label": "Left Slot",
+        "defaultValue": "1",
+        "options": [
+          { "label": "Empty", "value": "0" },
+          { "label": "Temperature", "value": "1" },
+          { "label": "Battery", "value": "2" },
+          { "label": "UV Index", "value": "3" }
+        ]
       },
       {
-        "type": "toggle",
-        "messageKey": "ShowBatteryPercent",
-        "label": "Show Battery Percentage",
-        "defaultValue": true
+        "type": "select",
+        "messageKey": "ComplicationMiddle",
+        "label": "Middle Slot",
+        "defaultValue": "2",
+        "options": [
+          { "label": "Empty", "value": "0" },
+          { "label": "Temperature", "value": "1" },
+          { "label": "Battery", "value": "2" },
+          { "label": "UV Index", "value": "3" }
+        ]
+      },
+      {
+        "type": "select",
+        "messageKey": "ComplicationRight",
+        "label": "Right Slot",
+        "defaultValue": "3",
+        "options": [
+          { "label": "Empty", "value": "0" },
+          { "label": "Temperature", "value": "1" },
+          { "label": "Battery", "value": "2" },
+          { "label": "UV Index", "value": "3" }
+        ]
       }
     ]
   },

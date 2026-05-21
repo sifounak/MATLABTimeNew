@@ -50,14 +50,16 @@ function updateColors() {
 }
 
 // --- Settings ---
+// Complication types: 0=empty, 1=temperature, 2=battery, 3=uv
 const DEFAULT_SETTINGS = {
     backgroundColor: { r: 0, g: 0, b: 0 },
     textColor: { r: 255, g: 255, b: 255 },
     useCelsius: false,
     dateFormat: 0,
     use24Hour: false,
-    showBatteryPercent: true,
-    showUV: true,
+    complicationLeft: 1,
+    complicationMiddle: 2,
+    complicationRight: 3,
     vibeOnDisconnect: true,
     vibeOnConnect: true
 };
@@ -208,39 +210,51 @@ function drawScreen(event) {
         render.drawText(dateStr, fonts.date, colors.text, (w - dw) / 2, dateY);
     }
 
-    // Battery
-    const battStr = (settings.showBatteryPercent || state.batteryCharging)
-        ? (state.batteryCharging ? `Charging ${state.batteryPercent}%` : `${state.batteryPercent}%`)
-        : "";
-    const bw = render.getTextWidth(battStr, fonts.small);
-    const battX = (w - bw) / 2;
-    if (battStr) {
-        render.drawText(battStr, fonts.small, colors.text, battX, batteryY);
+    // Complications
+    function getComplicationStr(type) {
+        if (type === 1 && state.weather) {
+            const unit = settings.useCelsius ? "C" : "F";
+            return `${state.weather.temp}\xB0${unit}`;
+        }
+        if (type === 2) {
+            if (state.batteryCharging) return `Charging ${state.batteryPercent}%`;
+            return `${state.batteryPercent}%`;
+        }
+        if (type === 3 && state.weather) {
+            return `UV ${state.weather.uv}`;
+        }
+        return "";
     }
 
-    // Weather
-    if (state.weather) {
-        const unit = settings.useCelsius ? "C" : "F";
-        const tempStr = `${state.weather.temp}\xB0${unit}`;
+    const leftStr = getComplicationStr(settings.complicationLeft);
+    const middleStr = getComplicationStr(settings.complicationMiddle);
+    const rightStr = getComplicationStr(settings.complicationRight);
 
-        if (isEmery) {
-            // Emery: temp/uv at same Y as battery, pinned to screen edges
-            render.drawText(tempStr, fonts.small, colors.text, 15, batteryY);
-            if (settings.showUV) {
-                const uvStr = `UV ${state.weather.uv}`;
-                const uvW = render.getTextWidth(uvStr, fonts.small);
-                render.drawText(uvStr, fonts.small, colors.text, w - uvW - 15, batteryY);
-            }
-        } else {
-            // Gabbro: temp/uv flanking battery text
-            const weatherRowY = batteryY - fonts.small.height / 2;
-            const tempW = render.getTextWidth(tempStr, fonts.small);
-            render.drawText(tempStr, fonts.small, colors.text, battX - 7 - tempW, weatherRowY);
-            if (settings.showUV) {
-                const uvStr = `UV ${state.weather.uv}`;
-                const uvX = battX + bw + 7;
-                render.drawText(uvStr, fonts.small, colors.text, uvX, weatherRowY);
-            }
+    if (isEmery) {
+        if (leftStr) {
+            render.drawText(leftStr, fonts.small, colors.text, 15, batteryY);
+        }
+        if (middleStr) {
+            const mw = render.getTextWidth(middleStr, fonts.small);
+            render.drawText(middleStr, fonts.small, colors.text, (w - mw) / 2, batteryY);
+        }
+        if (rightStr) {
+            const rw = render.getTextWidth(rightStr, fonts.small);
+            render.drawText(rightStr, fonts.small, colors.text, w - rw - 15, batteryY);
+        }
+    } else {
+        // Gabbro: center the middle, flank left/right beside it
+        const midW = middleStr ? render.getTextWidth(middleStr, fonts.small) : 0;
+        const midX = (w - midW) / 2;
+        if (middleStr) {
+            render.drawText(middleStr, fonts.small, colors.text, midX, batteryY);
+        }
+        if (leftStr) {
+            const lw = render.getTextWidth(leftStr, fonts.small);
+            render.drawText(leftStr, fonts.small, colors.text, midX - 7 - lw, batteryY);
+        }
+        if (rightStr) {
+            render.drawText(rightStr, fonts.small, colors.text, midX + midW + 7, batteryY);
         }
     }
 
@@ -259,8 +273,8 @@ watch.addEventListener("resize", drawScreen);
 // --- Settings Receiver ---
 const message = new Message({
     keys: ["BackgroundColor", "TextColor", "UseCelsius", "DateFormat",
-           "HourFormat", "ShowBatteryPercent", "ShowUV",
-           "VibeOnDisconnect", "VibeOnConnect"],
+           "HourFormat", "ComplicationLeft", "ComplicationMiddle",
+           "ComplicationRight", "VibeOnDisconnect", "VibeOnConnect"],
     onReadable() {
         const msg = this.read();
 
@@ -284,13 +298,17 @@ const message = new Message({
         if (hf !== undefined) {
             settings.use24Hour = hf === 1;
         }
-        const sbp = msg.get("ShowBatteryPercent");
-        if (sbp !== undefined) {
-            settings.showBatteryPercent = sbp === 1;
+        const cl = msg.get("ComplicationLeft");
+        if (cl !== undefined) {
+            settings.complicationLeft = cl;
         }
-        const suv = msg.get("ShowUV");
-        if (suv !== undefined) {
-            settings.showUV = suv === 1;
+        const cm = msg.get("ComplicationMiddle");
+        if (cm !== undefined) {
+            settings.complicationMiddle = cm;
+        }
+        const cr = msg.get("ComplicationRight");
+        if (cr !== undefined) {
+            settings.complicationRight = cr;
         }
         const vd = msg.get("VibeOnDisconnect");
         if (vd !== undefined) {

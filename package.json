@@ -21,8 +21,9 @@
             "UseCelsius",
             "DateFormat",
             "HourFormat",
-            "ShowBatteryPercent",
-            "ShowUV",
+            "ComplicationLeft",
+            "ComplicationMiddle",
+            "ComplicationRight",
             "VibeOnDisconnect",
             "VibeOnConnect"
         ],
