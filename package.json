@@ -1,5 +1,5 @@
 {
-    "author": "MakeAwesomeHappen",
+    "author": "Adamandios Sifounakis",
     "dependencies": {
         "@moddable/pebbleproxy": "^0.1.5",
         "@rebble/clay": "^1.0.8"
@@ -7,13 +7,14 @@
     "keywords": [
         "pebble-app"
     ],
-    "name": "watchface-tutorial",
+    "name": "matlab-time-2",
     "pebble": {
         "capabilities": [
             "location",
             "configurable"
         ],
-        "displayName": "Tutorial Watchface",
+        "companyName": "Adamandios Sifounakis",
+        "displayName": "MATLAB Time 2",
         "enableMultiJS": true,
         "messageKeys": [
             "BackgroundColor",
