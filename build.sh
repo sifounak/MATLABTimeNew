@@ -10,5 +10,6 @@ find /var/tmp/pebble-sdk -name "*.xsa" -delete 2>/dev/null
 pebble wipe
 pebble clean
 pebble build
-pebble install --emulator gabbro
+#pebble install --emulator gabbro
+pebble install --emulator emery
 cd "$origDir"

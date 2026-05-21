@@ -9,6 +9,9 @@ console.log("=== Starting ===");
 
 const render = new Poco(screen);
 
+// --- Platform detection ---
+const isEmery = render.width >= 200;
+
 // --- Fonts ---
 function getFont(name, size) {
     const font = parseBMF(new Resource(`${name}-${size}.fnt`));
@@ -17,8 +20,8 @@ function getFont(name, size) {
 }
 
 const fonts = {
-    time: getFont("Olyford-Semi-Bold", 48),
-    date: getFont("Olyford-Semi-Bold", 26),
+    time: getFont("Olyford-Semi-Bold", isEmery ? 40 : 48),
+    date: getFont("Olyford-Semi-Bold", isEmery ? 22 : 26),
     small: getFont("Olyford-Semi-Bold", 16)
 };
 
@@ -166,10 +169,10 @@ function drawScreen(event) {
     const w = screenW;
     const h = screenH;
 
-    const timeY = h / 2 - fonts.time.height * 0.25;
+    const timeY = h / 2 - fonts.time.height * 0.25 + (isEmery ? 12 : 0);
     const dateY = timeY + fonts.time.height * 0.86;
+    const batteryY = isEmery ? h - fonts.small.height - 5 : h - fonts.small.height - 10;
     const weatherY = h - fonts.small.height * 2 - 10;
-    const batteryY = h - fonts.small.height - 10;
 
     // Main render pass: everything below the logo area
     render.begin(0, LOGO_BOTTOM, w, h - LOGO_BOTTOM);
@@ -205,18 +208,25 @@ function drawScreen(event) {
         render.drawText(battStr, fonts.small, colors.text, battX, batteryY);
     }
 
-    // Weather (flanking battery text)
+    // Weather
     if (state.weather) {
         const unit = settings.useFahrenheit ? "F" : "C";
         const tempStr = `${state.weather.temp}\xB0${unit}`;
         const uvStr = `UV ${state.weather.uv}`;
 
-        const weatherRowY = batteryY - fonts.small.height / 2;
-        const tempW = render.getTextWidth(tempStr, fonts.small);
-        render.drawText(tempStr, fonts.small, colors.text, battX - 7 - tempW, weatherRowY);
-
-        const uvX = battX + bw + 7;
-        render.drawText(uvStr, fonts.small, colors.text, uvX, weatherRowY);
+        if (isEmery) {
+            // Emery: temp/uv at same Y as battery, pinned to screen edges
+            render.drawText(tempStr, fonts.small, colors.text, 15, batteryY);
+            const uvW = render.getTextWidth(uvStr, fonts.small);
+            render.drawText(uvStr, fonts.small, colors.text, w - uvW - 15, batteryY);
+        } else {
+            // Gabbro: temp/uv flanking battery text
+            const weatherRowY = batteryY - fonts.small.height / 2;
+            const tempW = render.getTextWidth(tempStr, fonts.small);
+            render.drawText(tempStr, fonts.small, colors.text, battX - 7 - tempW, weatherRowY);
+            const uvX = battX + bw + 7;
+            render.drawText(uvStr, fonts.small, colors.text, uvX, weatherRowY);
+        }
     } else {
         const msg = "Loading...";
         let ww = render.getTextWidth(msg, fonts.small);

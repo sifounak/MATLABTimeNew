@@ -15,7 +15,19 @@
 			},
 			{
 				"source": "./assets/fonts/Olyford-Semi-Bold",
+				"size": 40,
+				"monochrome": true,
+				"blocks": ["Basic Latin"]
+			},
+			{
+				"source": "./assets/fonts/Olyford-Semi-Bold",
 				"size": 26,
+				"monochrome": true,
+				"blocks": ["Basic Latin"]
+			},
+			{
+				"source": "./assets/fonts/Olyford-Semi-Bold",
+				"size": 22,
 				"monochrome": true,
 				"blocks": ["Basic Latin"]
 			},
