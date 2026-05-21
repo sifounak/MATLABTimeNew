@@ -29,7 +29,13 @@ module.exports = [
     "items": [
       {
         "type": "heading",
-        "defaultValue": "Time & Date"
+        "defaultValue": "Units & Display"
+      },
+      {
+        "type": "toggle",
+        "messageKey": "UseCelsius",
+        "label": "Use Celsius",
+        "defaultValue": false
       },
       {
         "type": "toggle",
@@ -47,21 +53,6 @@ module.exports = [
           { "label": "MM/dd/yyyy", "value": "1" },
           { "label": "dd/MM/yyyy", "value": "2" }
         ]
-      }
-    ]
-  },
-  {
-    "type": "section",
-    "items": [
-      {
-        "type": "heading",
-        "defaultValue": "Data"
-      },
-      {
-        "type": "toggle",
-        "messageKey": "UseCelsius",
-        "label": "Use Celsius",
-        "defaultValue": false
       }
     ]
   },
