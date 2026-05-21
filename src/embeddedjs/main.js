@@ -120,8 +120,6 @@ const LOGO_BOTTOM = _logoY + 90;
 const state = {
     lastDate: new Date(),
     weather: null,
-    lastLatitude: null,
-    lastLongitude: null,
     batteryPercent: 100,
     batteryCharging: false,
     isConnected: true,
@@ -236,11 +234,14 @@ function drawScreen(event) {
     // Complications
     function getComplicationStr(type) {
         if (type === 1 && state.weather) {
-            if (settings.temperatureUnit === 2) {
-                return `${state.weather.temp} K`;
+            const c = state.weather.tempC;
+            if (settings.temperatureUnit === 0) {
+                return `${Math.round(c)}\xB0C`;
             }
-            const unit = settings.temperatureUnit === 0 ? "C" : "F";
-            return `${state.weather.temp}\xB0${unit}`;
+            if (settings.temperatureUnit === 2) {
+                return `${Math.round(c + 273.15)} K`;
+            }
+            return `${Math.round(c * 9 / 5 + 32)}\xB0F`;
         }
         if (type === 2) {
             if (state.batteryCharging) return `Charging ${state.batteryPercent}%`;
@@ -317,15 +318,7 @@ const message = new Message({
         if (tu !== undefined) {
             let newUnit = Number(tu);
             if (isNaN(newUnit) || newUnit < 0 || newUnit > 2) newUnit = 1;
-            if (newUnit !== settings.temperatureUnit) {
-                settings.temperatureUnit = newUnit;
-                localStorage.removeItem("weather");
-                localStorage.removeItem("weatherTime");
-                state.weather = null;
-                if (state.lastLatitude !== null) {
-                    fetchWeather(state.lastLatitude, state.lastLongitude);
-                }
-            }
+            settings.temperatureUnit = newUnit;
         }
         const df = msg.get("DateFormat");
         if (df !== undefined) {
@@ -388,7 +381,10 @@ function loadCachedWeather() {
         const age = Date.now() - Number(cachedTime);
         if (age < 60 * 60 * 1000) {
             try {
-                state.weather = JSON.parse(cached);
+                const parsed = JSON.parse(cached);
+                // Discard old cache format that used pre-converted temp
+                if (parsed.tempC === undefined) return false;
+                state.weather = parsed;
                 return true;
             } catch (e) {
                 console.log("Failed to parse cached weather");
@@ -416,24 +412,14 @@ function requestLocation() {
 }
 
 async function fetchWeather(latitude, longitude) {
-    state.lastLatitude = latitude;
-    state.lastLongitude = longitude;
     try {
-        let url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m%2Cweather_code%2Cuv_index`;
-        if (settings.temperatureUnit === 1) {
-            url += "&temperature_unit=fahrenheit";
-        }
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m%2Cweather_code%2Cuv_index`;
 
         const response = await fetch(url);
         const data = await response.json();
 
-        let temp = Math.round(data.current.temperature_2m);
-        if (settings.temperatureUnit === 2) {
-            temp = Math.round(data.current.temperature_2m + 273.15);
-        }
-
         state.weather = {
-            temp,
+            tempC: data.current.temperature_2m,
             conditions: getWeatherDescription(data.current.weather_code),
             uv: Math.round(data.current.uv_index)
         };
