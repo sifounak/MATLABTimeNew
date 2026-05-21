@@ -385,17 +385,10 @@ function requestLocation() {
 
 async function fetchWeather(latitude, longitude) {
     try {
-        const params = {
-            latitude,
-            longitude,
-            current: "temperature_2m,weather_code,uv_index"
-        };
+        let url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code,uv_index`;
         if (!settings.useCelsius) {
-            params.temperature_unit = "fahrenheit";
+            url += "&temperature_unit=fahrenheit";
         }
-
-        const url = new URL("https://api.open-meteo.com/v1/forecast");
-        url.search = new URLSearchParams(params);
 
         const response = await fetch(url);
         const data = await response.json();
