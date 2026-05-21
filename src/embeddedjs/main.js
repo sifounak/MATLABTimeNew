@@ -120,6 +120,8 @@ const LOGO_BOTTOM = _logoY + 90;
 const state = {
     lastDate: new Date(),
     weather: null,
+    lastLatitude: null,
+    lastLongitude: null,
     batteryPercent: 100,
     batteryCharging: false,
     isConnected: true,
@@ -312,7 +314,6 @@ const message = new Message({
             settings.textColor = { r: (tc >> 16) & 0xFF, g: (tc >> 8) & 0xFF, b: tc & 0xFF };
         }
         const tu = msg.get("TemperatureUnit");
-        let weatherInvalidated = false;
         if (tu !== undefined) {
             let newUnit = Number(tu);
             if (isNaN(newUnit) || newUnit < 0 || newUnit > 2) newUnit = 1;
@@ -321,7 +322,9 @@ const message = new Message({
                 localStorage.removeItem("weather");
                 localStorage.removeItem("weatherTime");
                 state.weather = null;
-                weatherInvalidated = true;
+                if (state.lastLatitude !== null) {
+                    fetchWeather(state.lastLatitude, state.lastLongitude);
+                }
             }
         }
         const df = msg.get("DateFormat");
@@ -356,9 +359,6 @@ const message = new Message({
         updateColors();
         fillBackground();
         drawScreen();
-        if (weatherInvalidated) {
-            requestLocation();
-        }
     }
 });
 
@@ -416,6 +416,8 @@ function requestLocation() {
 }
 
 async function fetchWeather(latitude, longitude) {
+    state.lastLatitude = latitude;
+    state.lastLongitude = longitude;
     try {
         let url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m%2Cweather_code%2Cuv_index`;
         if (settings.temperatureUnit === 1) {
