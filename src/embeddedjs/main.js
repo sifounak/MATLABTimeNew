@@ -312,14 +312,16 @@ const message = new Message({
             settings.textColor = { r: (tc >> 16) & 0xFF, g: (tc >> 8) & 0xFF, b: tc & 0xFF };
         }
         const tu = msg.get("TemperatureUnit");
+        let weatherInvalidated = false;
         if (tu !== undefined) {
-            const newUnit = Number(tu);
+            let newUnit = Number(tu);
+            if (isNaN(newUnit) || newUnit < 0 || newUnit > 2) newUnit = 1;
             if (newUnit !== settings.temperatureUnit) {
                 settings.temperatureUnit = newUnit;
                 localStorage.removeItem("weather");
                 localStorage.removeItem("weatherTime");
                 state.weather = null;
-                requestLocation();
+                weatherInvalidated = true;
             }
         }
         const df = msg.get("DateFormat");
@@ -354,6 +356,9 @@ const message = new Message({
         updateColors();
         fillBackground();
         drawScreen();
+        if (weatherInvalidated) {
+            requestLocation();
+        }
     }
 });
 
