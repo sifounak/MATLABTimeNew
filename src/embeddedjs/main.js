@@ -54,7 +54,7 @@ function updateColors() {
 const DEFAULT_SETTINGS = {
     backgroundColor: { r: 0, g: 0, b: 0 },
     textColor: { r: 255, g: 255, b: 255 },
-    temperatureUnit: "F",
+    temperatureUnit: 1,
     dateFormat: 0,
     use24Hour: false,
     complicationLeft: 3,
@@ -69,12 +69,13 @@ function loadSettings() {
     if (stored) {
         try {
             const parsed = { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
-            // Migrate old useCelsius boolean to temperatureUnit string.
+            // Migrate old useCelsius boolean to temperatureUnit number.
             // Safe to remove after 2-3 releases (added v1.1.0).
             if ("useCelsius" in parsed) {
-                parsed.temperatureUnit = parsed.useCelsius ? "C" : "F";
+                parsed.temperatureUnit = parsed.useCelsius ? 0 : 1;
                 delete parsed.useCelsius;
             }
+            parsed.temperatureUnit = Number(parsed.temperatureUnit);
             parsed.complicationLeft = Number(parsed.complicationLeft);
             parsed.complicationMiddle = Number(parsed.complicationMiddle);
             parsed.complicationRight = Number(parsed.complicationRight);
@@ -223,10 +224,10 @@ function drawScreen(event) {
     // Complications
     function getComplicationStr(type) {
         if (type === 1 && state.weather) {
-            if (settings.temperatureUnit === "K") {
+            if (settings.temperatureUnit === 2) {
                 return `${state.weather.temp} K`;
             }
-            const unit = settings.temperatureUnit === "C" ? "C" : "F";
+            const unit = settings.temperatureUnit === 0 ? "C" : "F";
             return `${state.weather.temp}\xB0${unit}`;
         }
         if (type === 2) {
@@ -302,7 +303,7 @@ const message = new Message({
         }
         const tu = msg.get("TemperatureUnit");
         if (tu !== undefined) {
-            settings.temperatureUnit = tu === "C" ? "C" : tu === "K" ? "K" : "F";
+            settings.temperatureUnit = Number(tu);
         }
         const df = msg.get("DateFormat");
         if (df !== undefined) {
@@ -395,7 +396,7 @@ function requestLocation() {
 async function fetchWeather(latitude, longitude) {
     try {
         let url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m%2Cweather_code%2Cuv_index`;
-        if (settings.temperatureUnit === "F") {
+        if (settings.temperatureUnit === 1) {
             url += "&temperature_unit=fahrenheit";
         }
 
@@ -403,7 +404,7 @@ async function fetchWeather(latitude, longitude) {
         const data = await response.json();
 
         let temp = Math.round(data.current.temperature_2m);
-        if (settings.temperatureUnit === "K") {
+        if (settings.temperatureUnit === 2) {
             temp = Math.round(data.current.temperature_2m + 273.15);
         }
 

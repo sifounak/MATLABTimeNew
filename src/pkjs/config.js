@@ -52,11 +52,11 @@ module.exports = [
         "type": "select",
         "messageKey": "TemperatureUnit",
         "label": "Temperature",
-        "defaultValue": "F",
+        "defaultValue": "1",
         "options": [
-          { "label": "Celsius", "value": "C" },
-          { "label": "Fahrenheit", "value": "F" },
-          { "label": "Kelvin", "value": "K" }
+          { "label": "Celsius", "value": "0" },
+          { "label": "Fahrenheit", "value": "1" },
+          { "label": "Kelvin", "value": "2" }
         ]
       }
     ]
