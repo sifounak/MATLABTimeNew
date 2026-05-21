@@ -18,11 +18,11 @@
         "messageKeys": [
             "BackgroundColor",
             "TextColor",
-            "TemperatureUnit",
-            "ShowDate",
+            "UseCelsius",
+            "DateFormat",
             "HourFormat",
             "ShowBatteryPercent",
-            "ShowConditions",
+            "ShowUV",
             "VibeOnDisconnect",
             "VibeOnConnect"
         ],

@@ -4,10 +4,6 @@ module.exports = [
     "defaultValue": "MATLAB Time Settings"
   },
   {
-    "type": "text",
-    "defaultValue": "Customize your watchface appearance and preferences."
-  },
-  {
     "type": "section",
     "items": [
       {
@@ -39,13 +35,18 @@ module.exports = [
         "type": "toggle",
         "messageKey": "HourFormat",
         "label": "Use 24-Hour Format",
-        "defaultValue": true
+        "defaultValue": false
       },
       {
-        "type": "toggle",
-        "messageKey": "ShowDate",
-        "label": "Show Date",
-        "defaultValue": true
+        "type": "select",
+        "messageKey": "DateFormat",
+        "label": "Date Format",
+        "defaultValue": "0",
+        "options": [
+          { "label": "eee MMM d", "value": "0" },
+          { "label": "MM/dd/yyyy", "value": "1" },
+          { "label": "dd/MM/yyyy", "value": "2" }
+        ]
       }
     ]
   },
@@ -54,28 +55,19 @@ module.exports = [
     "items": [
       {
         "type": "heading",
-        "defaultValue": "Weather"
+        "defaultValue": "Data"
       },
       {
         "type": "toggle",
-        "messageKey": "TemperatureUnit",
-        "label": "Use Fahrenheit",
+        "messageKey": "UseCelsius",
+        "label": "Use Celsius",
         "defaultValue": false
       },
       {
         "type": "toggle",
-        "messageKey": "ShowConditions",
-        "label": "Show Weather Conditions",
+        "messageKey": "ShowUV",
+        "label": "Show UV Index",
         "defaultValue": true
-      }
-    ]
-  },
-  {
-    "type": "section",
-    "items": [
-      {
-        "type": "heading",
-        "defaultValue": "Display"
       },
       {
         "type": "toggle",
@@ -102,7 +94,7 @@ module.exports = [
         "type": "toggle",
         "messageKey": "VibeOnConnect",
         "label": "Vibrate on Reconnect",
-        "defaultValue": false
+        "defaultValue": true
       }
     ]
   },

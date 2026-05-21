@@ -52,13 +52,13 @@ function updateColors() {
 const DEFAULT_SETTINGS = {
     backgroundColor: { r: 0, g: 0, b: 0 },
     textColor: { r: 255, g: 255, b: 255 },
-    useFahrenheit: true,
-    showDate: true,
+    useCelsius: false,
+    dateFormat: 0,
     use24Hour: false,
     showBatteryPercent: true,
-    showConditions: true,
+    showUV: true,
     vibeOnDisconnect: true,
-    vibeOnConnect: false
+    vibeOnConnect: true
 };
 
 function loadSettings() {
@@ -190,10 +190,20 @@ function drawScreen(event) {
     render.drawText(timeStr, fonts.time, colors.text, (w - tw) / 2, timeY);
 
     // Date
-    if (settings.showDate) {
-        const dayName = DAYS[now.getDay()];
-        const monthName = MONTHS[now.getMonth()];
-        const dateStr = `${dayName} ${monthName} ${String(now.getDate()).padStart(2, "0")}`;
+    {
+        let dateStr;
+        const day = now.getDate();
+        const month = now.getMonth();
+        const year = now.getFullYear();
+        if (settings.dateFormat === 1) {
+            dateStr = `${String(month + 1).padStart(2, "0")}/${String(day).padStart(2, "0")}/${year}`;
+        } else if (settings.dateFormat === 2) {
+            dateStr = `${String(day).padStart(2, "0")}/${String(month + 1).padStart(2, "0")}/${year}`;
+        } else {
+            const dayName = DAYS[now.getDay()];
+            const monthName = MONTHS[now.getMonth()];
+            dateStr = `${dayName} ${monthName} ${day}`;
+        }
         let dw = render.getTextWidth(dateStr, fonts.date);
         render.drawText(dateStr, fonts.date, colors.text, (w - dw) / 2, dateY);
     }
@@ -210,22 +220,27 @@ function drawScreen(event) {
 
     // Weather
     if (state.weather) {
-        const unit = settings.useFahrenheit ? "F" : "C";
+        const unit = settings.useCelsius ? "C" : "F";
         const tempStr = `${state.weather.temp}\xB0${unit}`;
-        const uvStr = `UV ${state.weather.uv}`;
 
         if (isEmery) {
             // Emery: temp/uv at same Y as battery, pinned to screen edges
             render.drawText(tempStr, fonts.small, colors.text, 15, batteryY);
-            const uvW = render.getTextWidth(uvStr, fonts.small);
-            render.drawText(uvStr, fonts.small, colors.text, w - uvW - 15, batteryY);
+            if (settings.showUV) {
+                const uvStr = `UV ${state.weather.uv}`;
+                const uvW = render.getTextWidth(uvStr, fonts.small);
+                render.drawText(uvStr, fonts.small, colors.text, w - uvW - 15, batteryY);
+            }
         } else {
             // Gabbro: temp/uv flanking battery text
             const weatherRowY = batteryY - fonts.small.height / 2;
             const tempW = render.getTextWidth(tempStr, fonts.small);
             render.drawText(tempStr, fonts.small, colors.text, battX - 7 - tempW, weatherRowY);
-            const uvX = battX + bw + 7;
-            render.drawText(uvStr, fonts.small, colors.text, uvX, weatherRowY);
+            if (settings.showUV) {
+                const uvStr = `UV ${state.weather.uv}`;
+                const uvX = battX + bw + 7;
+                render.drawText(uvStr, fonts.small, colors.text, uvX, weatherRowY);
+            }
         }
     } else {
         const msg = "Loading...";
@@ -247,8 +262,8 @@ watch.addEventListener("resize", drawScreen);
 
 // --- Settings Receiver ---
 const message = new Message({
-    keys: ["BackgroundColor", "TextColor", "TemperatureUnit", "ShowDate",
-           "HourFormat", "ShowBatteryPercent", "ShowConditions",
+    keys: ["BackgroundColor", "TextColor", "UseCelsius", "DateFormat",
+           "HourFormat", "ShowBatteryPercent", "ShowUV",
            "VibeOnDisconnect", "VibeOnConnect"],
     onReadable() {
         const msg = this.read();
@@ -261,13 +276,13 @@ const message = new Message({
         if (tc !== undefined) {
             settings.textColor = { r: (tc >> 16) & 0xFF, g: (tc >> 8) & 0xFF, b: tc & 0xFF };
         }
-        const tu = msg.get("TemperatureUnit");
-        if (tu !== undefined) {
-            settings.useFahrenheit = tu === 1;
+        const uc = msg.get("UseCelsius");
+        if (uc !== undefined) {
+            settings.useCelsius = uc === 1;
         }
-        const sd = msg.get("ShowDate");
-        if (sd !== undefined) {
-            settings.showDate = sd === 1;
+        const df = msg.get("DateFormat");
+        if (df !== undefined) {
+            settings.dateFormat = df;
         }
         const hf = msg.get("HourFormat");
         if (hf !== undefined) {
@@ -277,9 +292,9 @@ const message = new Message({
         if (sbp !== undefined) {
             settings.showBatteryPercent = sbp === 1;
         }
-        const sc = msg.get("ShowConditions");
-        if (sc !== undefined) {
-            settings.showConditions = sc === 1;
+        const suv = msg.get("ShowUV");
+        if (suv !== undefined) {
+            settings.showUV = suv === 1;
         }
         const vd = msg.get("VibeOnDisconnect");
         if (vd !== undefined) {
@@ -356,7 +371,7 @@ async function fetchWeather(latitude, longitude) {
             longitude,
             current: "temperature_2m,weather_code,uv_index"
         };
-        if (settings.useFahrenheit) {
+        if (!settings.useCelsius) {
             params.temperature_unit = "fahrenheit";
         }
 
