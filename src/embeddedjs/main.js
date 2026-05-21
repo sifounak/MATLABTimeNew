@@ -178,7 +178,7 @@ function drawScreen(event) {
 
     const timeY = h / 2 - fonts.time.height * 0.25 + (isEmery ? 12 : 0);
     const dateY = timeY + fonts.time.height * 0.86;
-    const batteryY = isEmery ? h - fonts.small.height - 5 : h - fonts.small.height - 10;
+    const complicationY = isEmery ? h - fonts.small.height - 5 : h - fonts.small.height - 10;
 
     // Main render pass: everything below the logo area
     render.begin(0, LOGO_BOTTOM, w, h - LOGO_BOTTOM);
@@ -236,23 +236,23 @@ function drawScreen(event) {
 
     if (isEmery) {
         if (leftStr) {
-            render.drawText(leftStr, fonts.small, colors.text, 15, batteryY);
+            render.drawText(leftStr, fonts.small, colors.text, 15, complicationY);
         }
         if (middleStr) {
             const mw = render.getTextWidth(middleStr, fonts.small);
-            render.drawText(middleStr, fonts.small, colors.text, (w - mw) / 2, batteryY);
+            render.drawText(middleStr, fonts.small, colors.text, (w - mw) / 2, complicationY);
         }
         if (rightStr) {
             const rw = render.getTextWidth(rightStr, fonts.small);
-            render.drawText(rightStr, fonts.small, colors.text, w - rw - 15, batteryY);
+            render.drawText(rightStr, fonts.small, colors.text, w - rw - 15, complicationY);
         }
     } else {
         // Gabbro: center the middle, flank left/right beside it (offset up)
         const midW = middleStr ? render.getTextWidth(middleStr, fonts.small) : 0;
         const midX = (w - midW) / 2;
-        const flankY = batteryY - fonts.small.height / 2;
+        const flankY = complicationY - fonts.small.height / 2;
         if (middleStr) {
-            render.drawText(middleStr, fonts.small, colors.text, midX, batteryY);
+            render.drawText(middleStr, fonts.small, colors.text, midX, complicationY);
         }
         if (leftStr) {
             const lw = render.getTextWidth(leftStr, fonts.small);
