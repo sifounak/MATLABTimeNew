@@ -54,7 +54,7 @@ function updateColors() {
 const DEFAULT_SETTINGS = {
     backgroundColor: { r: 0, g: 0, b: 0 },
     textColor: { r: 255, g: 255, b: 255 },
-    useCelsius: false,
+    temperatureUnit: "F",
     dateFormat: 0,
     use24Hour: false,
     complicationLeft: 3,
@@ -69,6 +69,12 @@ function loadSettings() {
     if (stored) {
         try {
             const parsed = { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+            // Migrate old useCelsius boolean to temperatureUnit string.
+            // Safe to remove after 2-3 releases (added v1.1.0).
+            if ("useCelsius" in parsed) {
+                parsed.temperatureUnit = parsed.useCelsius ? "C" : "F";
+                delete parsed.useCelsius;
+            }
             parsed.complicationLeft = Number(parsed.complicationLeft);
             parsed.complicationMiddle = Number(parsed.complicationMiddle);
             parsed.complicationRight = Number(parsed.complicationRight);
@@ -217,7 +223,7 @@ function drawScreen(event) {
     // Complications
     function getComplicationStr(type) {
         if (type === 1 && state.weather) {
-            const unit = settings.useCelsius ? "C" : "F";
+            const unit = settings.temperatureUnit === "C" ? "C" : "F";
             return `${state.weather.temp}\xB0${unit}`;
         }
         if (type === 2) {
@@ -277,7 +283,7 @@ watch.addEventListener("resize", drawScreen);
 
 // --- Settings Receiver ---
 const message = new Message({
-    keys: ["BackgroundColor", "TextColor", "UseCelsius", "DateFormat",
+    keys: ["BackgroundColor", "TextColor", "TemperatureUnit", "DateFormat",
            "HourFormat", "ComplicationLeft", "ComplicationMiddle",
            "ComplicationRight", "VibeOnDisconnect", "VibeOnConnect"],
     onReadable() {
@@ -291,9 +297,9 @@ const message = new Message({
         if (tc !== undefined) {
             settings.textColor = { r: (tc >> 16) & 0xFF, g: (tc >> 8) & 0xFF, b: tc & 0xFF };
         }
-        const uc = msg.get("UseCelsius");
-        if (uc !== undefined) {
-            settings.useCelsius = uc === 1;
+        const tu = msg.get("TemperatureUnit");
+        if (tu !== undefined) {
+            settings.temperatureUnit = tu === "C" || tu === 1 ? "C" : "F";
         }
         const df = msg.get("DateFormat");
         if (df !== undefined) {
@@ -386,7 +392,7 @@ function requestLocation() {
 async function fetchWeather(latitude, longitude) {
     try {
         let url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m%2Cweather_code%2Cuv_index`;
-        if (!settings.useCelsius) {
+        if (settings.temperatureUnit !== "C") {
             url += "&temperature_unit=fahrenheit";
         }
 

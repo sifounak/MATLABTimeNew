@@ -33,12 +33,6 @@ module.exports = [
       },
       {
         "type": "toggle",
-        "messageKey": "UseCelsius",
-        "label": "Use Celsius",
-        "defaultValue": false
-      },
-      {
-        "type": "toggle",
         "messageKey": "HourFormat",
         "label": "Use 24-Hour Format",
         "defaultValue": false
@@ -52,6 +46,16 @@ module.exports = [
           { "label": "eee MMM d", "value": "0" },
           { "label": "MM/dd/yyyy", "value": "1" },
           { "label": "dd/MM/yyyy", "value": "2" }
+        ]
+      },
+      {
+        "type": "select",
+        "messageKey": "TemperatureUnit",
+        "label": "Temperature",
+        "defaultValue": "F",
+        "options": [
+          { "label": "Fahrenheit", "value": "F" },
+          { "label": "Celsius", "value": "C" }
         ]
       }
     ]

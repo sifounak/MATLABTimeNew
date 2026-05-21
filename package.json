@@ -19,7 +19,7 @@
         "messageKeys": [
             "BackgroundColor",
             "TextColor",
-            "UseCelsius",
+            "TemperatureUnit",
             "DateFormat",
             "HourFormat",
             "ComplicationLeft",
