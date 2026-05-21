@@ -78,9 +78,9 @@ module.exports = [
         "label": "Left Slot",
         "defaultValue": "1",
         "options": [
-          { "label": "Empty", "value": "0" },
-          { "label": "Temperature", "value": "1" },
+          { "label": "--Empty--", "value": "0" },
           { "label": "Battery", "value": "2" },
+          { "label": "Temperature", "value": "1" },
           { "label": "UV Index", "value": "3" }
         ]
       },
@@ -90,9 +90,9 @@ module.exports = [
         "label": "Middle Slot",
         "defaultValue": "2",
         "options": [
-          { "label": "Empty", "value": "0" },
-          { "label": "Temperature", "value": "1" },
+          { "label": "--Empty--", "value": "0" },
           { "label": "Battery", "value": "2" },
+          { "label": "Temperature", "value": "1" },
           { "label": "UV Index", "value": "3" }
         ]
       },
@@ -102,9 +102,9 @@ module.exports = [
         "label": "Right Slot",
         "defaultValue": "3",
         "options": [
-          { "label": "Empty", "value": "0" },
-          { "label": "Temperature", "value": "1" },
+          { "label": "--Empty--", "value": "0" },
           { "label": "Battery", "value": "2" },
+          { "label": "Temperature", "value": "1" },
           { "label": "UV Index", "value": "3" }
         ]
       }
