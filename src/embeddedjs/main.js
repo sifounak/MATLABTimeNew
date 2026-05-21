@@ -303,7 +303,14 @@ const message = new Message({
         }
         const tu = msg.get("TemperatureUnit");
         if (tu !== undefined) {
-            settings.temperatureUnit = Number(tu);
+            const newUnit = Number(tu);
+            if (newUnit !== settings.temperatureUnit) {
+                settings.temperatureUnit = newUnit;
+                localStorage.removeItem("weather");
+                localStorage.removeItem("weatherTime");
+                state.weather = null;
+                requestLocation();
+            }
         }
         const df = msg.get("DateFormat");
         if (df !== undefined) {
