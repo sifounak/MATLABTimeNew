@@ -68,7 +68,11 @@ function loadSettings() {
     const stored = localStorage.getItem("settings");
     if (stored) {
         try {
-            return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+            const parsed = { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+            parsed.complicationLeft = Number(parsed.complicationLeft);
+            parsed.complicationMiddle = Number(parsed.complicationMiddle);
+            parsed.complicationRight = Number(parsed.complicationRight);
+            return parsed;
         } catch (e) {
             console.log("Failed to parse settings");
         }
@@ -300,15 +304,15 @@ const message = new Message({
         }
         const cl = msg.get("ComplicationLeft");
         if (cl !== undefined) {
-            settings.complicationLeft = cl;
+            settings.complicationLeft = Number(cl);
         }
         const cm = msg.get("ComplicationMiddle");
         if (cm !== undefined) {
-            settings.complicationMiddle = cm;
+            settings.complicationMiddle = Number(cm);
         }
         const cr = msg.get("ComplicationRight");
         if (cr !== undefined) {
-            settings.complicationRight = cr;
+            settings.complicationRight = Number(cr);
         }
         const vd = msg.get("VibeOnDisconnect");
         if (vd !== undefined) {
