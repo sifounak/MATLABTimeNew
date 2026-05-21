@@ -173,7 +173,6 @@ function drawScreen(event) {
     const timeY = h / 2 - fonts.time.height * 0.25 + (isEmery ? 12 : 0);
     const dateY = timeY + fonts.time.height * 0.86;
     const batteryY = isEmery ? h - fonts.small.height - 5 : h - fonts.small.height - 10;
-    const weatherY = h - fonts.small.height * 2 - 10;
 
     // Main render pass: everything below the logo area
     render.begin(0, LOGO_BOTTOM, w, h - LOGO_BOTTOM);
@@ -243,10 +242,6 @@ function drawScreen(event) {
                 render.drawText(uvStr, fonts.small, colors.text, uvX, weatherRowY);
             }
         }
-    } else {
-        const msg = "Loading...";
-        let ww = render.getTextWidth(msg, fonts.small);
-        render.drawText(msg, fonts.small, colors.text, (w - ww) / 2, weatherY);
     }
 
     render.end();
