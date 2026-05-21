@@ -1,4 +1,11 @@
 #!/bin/bash
+
+# Check inputs
+targetPlatform="gabbro"
+if [ $# -gt 0 ]; then
+    targetPlatform="$1"
+fi
+
 origDir=$(pwd)
 pebble kill
 cd ~
@@ -10,6 +17,5 @@ find /var/tmp/pebble-sdk -name "*.xsa" -delete 2>/dev/null
 pebble wipe
 pebble clean
 pebble build
-#pebble install --emulator gabbro
-pebble install --emulator emery
+pebble install --emulator ${targetPlatform}
 cd "$origDir"
