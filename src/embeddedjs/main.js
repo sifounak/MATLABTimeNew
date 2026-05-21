@@ -69,13 +69,23 @@ function loadSettings() {
     if (stored) {
         try {
             const parsed = { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
-            // Migrate old useCelsius boolean to temperatureUnit number.
+            // Migrate old settings formats to temperatureUnit number.
             // Safe to remove after 2-3 releases (added v1.1.0).
             if ("useCelsius" in parsed) {
                 parsed.temperatureUnit = parsed.useCelsius ? 0 : 1;
                 delete parsed.useCelsius;
+            } else if (parsed.temperatureUnit === "C") {
+                parsed.temperatureUnit = 0;
+            } else if (parsed.temperatureUnit === "F") {
+                parsed.temperatureUnit = 1;
+            } else if (parsed.temperatureUnit === "K") {
+                parsed.temperatureUnit = 2;
+            } else {
+                parsed.temperatureUnit = Number(parsed.temperatureUnit);
             }
-            parsed.temperatureUnit = Number(parsed.temperatureUnit);
+            if (isNaN(parsed.temperatureUnit) || parsed.temperatureUnit < 0 || parsed.temperatureUnit > 2) {
+                parsed.temperatureUnit = 1;
+            }
             parsed.complicationLeft = Number(parsed.complicationLeft);
             parsed.complicationMiddle = Number(parsed.complicationMiddle);
             parsed.complicationRight = Number(parsed.complicationRight);
