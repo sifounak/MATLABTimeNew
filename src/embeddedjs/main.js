@@ -63,8 +63,8 @@ const DEFAULT_SETTINGS = {
     dateFormat: 0,
     use24Hour: false,
     complicationLeft: 3,
-    complicationMiddle: 1,
-    complicationRight: 2,
+    complicationMiddle: 2,
+    complicationRight: 1,
     vibeOnDisconnect: true,
     vibeOnConnect: true
 };

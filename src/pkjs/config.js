@@ -84,7 +84,7 @@ module.exports = [
         "type": "select",
         "messageKey": "ComplicationMiddle",
         "label": "Middle Slot",
-        "defaultValue": "1",
+        "defaultValue": "2",
         "options": [
           { "label": "--Empty--", "value": "0" },
           { "label": "Battery", "value": "2" },
@@ -96,7 +96,7 @@ module.exports = [
         "type": "select",
         "messageKey": "ComplicationRight",
         "label": "Right Slot",
-        "defaultValue": "2",
+        "defaultValue": "1",
         "options": [
           { "label": "--Empty--", "value": "0" },
           { "label": "Battery", "value": "2" },
