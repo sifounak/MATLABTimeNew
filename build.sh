@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Build and install Pebble watch face
+# Must be run from WSL
+
 # Check inputs
 targetPlatform="gabbro"
 if [ $# -gt 0 ]; then
@@ -7,15 +10,15 @@ if [ $# -gt 0 ]; then
 fi
 
 origDir=$(pwd)
+scriptDir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+workDir="$HOME/MATLAB_Time_New"
 pebble kill
-cd ~
-rm -rf ~/MATLAB_Time_New
-cp -r /mnt/c/MATLAB/Claude/MATLAB_Time_New ~/MATLAB_Time_New
-cd ~/MATLAB_Time_New
-rm -rf build
-find /var/tmp/pebble-sdk -name "*.xsa" -delete 2>/dev/null
+rm -rf "$workDir"
+cp -r "$scriptDir" "$workDir"
+cd "$workDir"
+rm -rf build node_modules
 pebble wipe
 pebble clean
 pebble build
-pebble install --emulator ${targetPlatform}
+pebble install --emulator "${targetPlatform}" --logs
 cd "$origDir"

@@ -9,9 +9,9 @@ console.log("=== Starting ===");
 
 const render = new Poco(screen);
 
-// --- Platform detection ---
-// Emery is 200x228 (rectangular), gabbro is 260x260 (round)
-const isEmery = render.height > render.width;
+// --- Layout detection ---
+// Gabbro is round; Emery is rectangular.
+const isRound = render.width === render.height;
 
 // --- Fonts ---
 function getFont(name, size) {
@@ -20,10 +20,15 @@ function getFont(name, size) {
     return font;
 }
 
+// TODO: Add a setting to optionally use the original MATLAB font on all layouts.
+const fontSizes = isRound
+    ? { time: 48, date: 26, small: 16 }
+    : { time: 40, date: 22, small: 16 };
+
 const fonts = {
-    time: getFont("Olyford-Semi-Bold", isEmery ? 40 : 48),
-    date: getFont("Olyford-Semi-Bold", isEmery ? 22 : 26),
-    small: getFont("Olyford-Semi-Bold", 16)
+    time: getFont("Olyford-Semi-Bold", fontSizes.time),
+    date: getFont("Olyford-Semi-Bold", fontSizes.date),
+    small: getFont("Olyford-Semi-Bold", fontSizes.small)
 };
 
 function fillBackground() {
@@ -193,9 +198,9 @@ function drawScreen(event) {
     const w = screenW;
     const h = screenH;
 
-    const timeY = h / 2 - fonts.time.height * 0.25 + (isEmery ? 12 : 0);
+    const timeY = h / 2 - fonts.time.height * 0.25 + (!isRound ? 12 : 0);
     const dateY = timeY + fonts.time.height * 0.86;
-    const complicationY = isEmery ? h - fonts.small.height - 5 : h - fonts.small.height - 10;
+    const complicationY = !isRound ? h - fonts.small.height - 5 : h - fonts.small.height - 10;
 
     // Main render pass: everything below the logo area
     render.begin(0, LOGO_BOTTOM, w, h - LOGO_BOTTOM);
@@ -257,7 +262,7 @@ function drawScreen(event) {
     const middleStr = getComplicationStr(settings.complicationMiddle);
     const rightStr = getComplicationStr(settings.complicationRight);
 
-    if (isEmery) {
+    if (!isRound) {
         if (leftStr) {
             render.drawText(leftStr, fonts.small, colors.text, 15, complicationY);
         }

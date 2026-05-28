@@ -86,7 +86,7 @@ int main(void) {
   app_timer_register(1000, refresh_logo_callback, NULL);
 
   // Start Moddable JS engine
-  moddable_createMachine(NULL);
+  (void)moddable_createMachine(NULL);
 
   // Cleanup
   tick_timer_service_unsubscribe();
