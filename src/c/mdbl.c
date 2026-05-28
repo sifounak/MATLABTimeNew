@@ -1,10 +1,11 @@
 #include <pebble.h>
+#include "logo_control.h"
 
 static Window *s_window;
 static BitmapLayer *s_logo_bitmap_layer;
 static GBitmapSequence *s_logo_sequence = NULL;
 static GBitmap *s_logo_bitmap = NULL;
-static bool s_first_minute = true;
+static bool s_logo_animating = false;
 static GColor s_bg_color;
 
 static void clear_bitmap_to_bg() {
@@ -33,19 +34,20 @@ static void logo_timer_callback(void *context) {
   } else {
     // Animation complete, reset to first frame
     load_first_frame();
+    s_logo_animating = false;
   }
 }
 
-static void animate_logo() {
+void matlab_time_animate_logo(void) {
+  if (s_logo_animating || !s_logo_sequence || !s_logo_bitmap || !s_logo_bitmap_layer) {
+    return;
+  }
+  s_logo_animating = true;
   app_timer_register(1, logo_timer_callback, NULL);
 }
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
-  if (s_first_minute) {
-    s_first_minute = false;
-    return;
-  }
-  animate_logo();
+  logo_control_handle_minute_tick(tick_time);
 }
 
 static void refresh_logo_callback(void *context) {
@@ -79,6 +81,8 @@ int main(void) {
 
   layer_add_child(window_get_root_layer(s_window), bitmap_layer_get_layer(s_logo_bitmap_layer));
 
+  logo_control_init();
+
   // Subscribe to minute ticks for animation trigger
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
 
@@ -89,6 +93,7 @@ int main(void) {
   (void)moddable_createMachine(NULL);
 
   // Cleanup
+  logo_control_deinit();
   tick_timer_service_unsubscribe();
   bitmap_layer_destroy(s_logo_bitmap_layer);
   gbitmap_sequence_destroy(s_logo_sequence);

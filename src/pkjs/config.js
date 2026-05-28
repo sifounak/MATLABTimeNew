@@ -111,6 +111,28 @@ module.exports = [
     "items": [
       {
         "type": "heading",
+        "defaultValue": "Logo Rotation"
+      },
+      {
+        "type": "select",
+        "messageKey": "LogoRotationTrigger",
+        "label": "Trigger:",
+        "defaultValue": "0",
+        "options": [
+          { "label": "Off", "value": "0" },
+          { "label": "Double tap", "value": "1" },
+          { "label": "Shake", "value": "2" },
+          { "label": "Minute", "value": "3" },
+          { "label": "Hour", "value": "4" }
+        ]
+      }
+    ]
+  },
+  {
+    "type": "section",
+    "items": [
+      {
+        "type": "heading",
         "defaultValue": "Bluetooth Alerts"
       },
       {

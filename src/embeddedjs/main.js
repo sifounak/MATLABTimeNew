@@ -65,6 +65,7 @@ const DEFAULT_SETTINGS = {
     complicationLeft: 3,
     complicationMiddle: 2,
     complicationRight: 1,
+    logoRotationTrigger: 0,
     vibeOnDisconnect: true,
     vibeOnConnect: true
 };
@@ -94,6 +95,10 @@ function loadSettings() {
             parsed.complicationLeft = Number(parsed.complicationLeft);
             parsed.complicationMiddle = Number(parsed.complicationMiddle);
             parsed.complicationRight = Number(parsed.complicationRight);
+            parsed.logoRotationTrigger = Number(parsed.logoRotationTrigger);
+            if (isNaN(parsed.logoRotationTrigger) || parsed.logoRotationTrigger < 0 || parsed.logoRotationTrigger > 4) {
+                parsed.logoRotationTrigger = 0;
+            }
             return parsed;
         } catch (e) {
             console.log("Failed to parse settings");
@@ -307,7 +312,8 @@ watch.addEventListener("resize", drawScreen);
 const message = new Message({
     keys: ["BackgroundColor", "TextColor", "TemperatureUnit", "DateFormat",
            "HourFormat", "ComplicationLeft", "ComplicationMiddle",
-           "ComplicationRight", "VibeOnDisconnect", "VibeOnConnect"],
+           "ComplicationRight", "VibeOnDisconnect", "VibeOnConnect",
+           "LogoRotationTrigger"],
     onReadable() {
         const msg = this.read();
 
@@ -344,6 +350,13 @@ const message = new Message({
         const cr = msg.get("ComplicationRight");
         if (cr !== undefined) {
             settings.complicationRight = Number(cr);
+        }
+        const lrt = msg.get("LogoRotationTrigger");
+        if (lrt !== undefined) {
+            settings.logoRotationTrigger = Number(lrt);
+            if (isNaN(settings.logoRotationTrigger) || settings.logoRotationTrigger < 0 || settings.logoRotationTrigger > 4) {
+                settings.logoRotationTrigger = 0;
+            }
         }
         const vd = msg.get("VibeOnDisconnect");
         if (vd !== undefined) {

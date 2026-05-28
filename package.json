@@ -26,7 +26,8 @@
             "ComplicationMiddle",
             "ComplicationRight",
             "VibeOnDisconnect",
-            "VibeOnConnect"
+            "VibeOnConnect",
+            "LogoRotationTrigger"
         ],
         "projectType": "moddable",
         "resources": {
