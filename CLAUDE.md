@@ -9,49 +9,46 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Pebble smartwatch watchface app built with the **Moddable SDK** (projectType: "moddable"). It targets Pebble Time Round (emery) and Pebble 2 (gabbro) platforms using SDK v3.
+This is a native Pebble C API watchface app (projectType: "native"). It targets the Emery and Gabbro platforms using SDK v3.
 
-The watchface displays time, date, battery level, Bluetooth connection status, and weather (fetched from Open-Meteo API). It supports user configuration via Clay settings page.
+The watchface displays time, date, configurable complication slots, Bluetooth connection status, weather from Open-Meteo, and the animated MATLAB logo. User configuration is handled through Clay on the phone side and received directly by the C app through AppMessage.
 
 ## Build & Deploy
 
 ```bash
-npm install                  # Install dependencies (@moddable/pebbleproxy, @rebble/clay)
-pebble build                 # Build the watchface
-pebble install --emulator emery   # Install to emulator
-pebble install --phone       # Install to connected phone
+npm install
+pebble build
+pebble install --emulator gabbro
+pebble install --phone
+```
+
+The repo also includes `build.sh`, which must be run from WSL. It wipes, builds, installs to an emulator, and leaves log streaming attached:
+
+```bash
+./build.sh gabbro
 ```
 
 ## Architecture
 
-The app uses three layers that communicate via Pebble's AppMessage system:
+- `src/c/main.c` - Native watchface implementation: UI layers, APNG logo animation, settings persistence, tick/battery/bluetooth/touch/accelerometer services, and AppMessage handling.
+- `src/pkjs/index.js` - Phone-side JavaScript: initializes Clay and fetches Open-Meteo weather when the watch requests it.
+- `src/pkjs/config.js` - Clay settings schema.
+- `src/pkjs/custom-clay.js` - Clay custom behavior that prevents duplicate complication slot selections.
+- `package.json` - Pebble metadata, message keys, target platforms, dependencies, and C resources.
 
-- **`src/c/mdbl.c`** — Minimal C bootstrap that creates the window and initializes the Moddable JS engine
-- **`src/embeddedjs/main.js`** — Core watchface logic running on-watch via Moddable runtime (Poco renderer, BMF fonts, sensors, fetch API). This is where all display rendering and business logic lives.
-- **`src/pkjs/index.js`** — Phone-side JS that initializes Clay config and proxies messages between phone and Moddable runtime via `@moddable/pebbleproxy`
+## Message Keys
 
-### Configuration
+Clay settings use these keys:
 
-- **`src/pkjs/config.js`** — Clay configuration schema defining settings UI (colors, temperature unit, date visibility, hour format)
-- **`src/embeddedjs/manifest.json`** — Moddable resource manifest for font compilation (Jersey10-Regular at sizes 56 and 24)
-- **`package.json`** — Pebble project metadata including message keys, capabilities, and target platforms
+`BackgroundColor`, `TextColor`, `TemperatureUnit`, `DateFormat`, `HourFormat`, `ComplicationLeft`, `ComplicationMiddle`, `ComplicationRight`, `VibeOnDisconnect`, `VibeOnConnect`, `LogoRotationTrigger`.
 
-### Message Keys
+Weather messaging uses:
 
-Settings flow from Clay config page through AppMessage using these keys: `BackgroundColor`, `TextColor`, `TemperatureUnit`, `ShowDate`, `HourFormat`.
+`RequestWeather`, `WeatherTemperatureC`, `WeatherUV`.
 
 ## Reference Material
 
 - Rebble developer documentation: https://developer.repebble.com/
-
-The `reference/` directory contains reference implementations:
-- `reference/newApproach/` — A more complete watchface example with image resources and wscript build (older Pebble SDK style)
-- `reference/originalWatchface/` — Original watchface for comparison
-
-## Key Technical Details
-
-- Rendering uses Commodetto/Poco (Moddable's 2D graphics engine)
-- Custom fonts are loaded as BMF resources with RLE-compressed alpha bitmaps
-- Weather is fetched via `fetch()` from Open-Meteo API using device GPS coordinates
-- Settings persist via `localStorage` on the watch
-- Weather data is cached for 1 hour in localStorage
+- `reference/cApiDefaultTemplate/` - Native C API template used as the structural baseline for the current migration.
+- `reference/originalWatchface/` - Original MATLAB Time C watchface for comparison.
+- `reference/newApproach/` - Previous Moddable/Alloy experiment.

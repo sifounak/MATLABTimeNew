@@ -1,7 +1,6 @@
 {
     "author": "Adamandios Sifounakis",
     "dependencies": {
-        "@moddable/pebbleproxy": "^0.1.5",
         "@rebble/clay": "^1.0.8"
     },
     "keywords": [
@@ -27,12 +26,49 @@
             "ComplicationRight",
             "VibeOnDisconnect",
             "VibeOnConnect",
-            "LogoRotationTrigger"
+            "LogoRotationTrigger",
+            "WeatherTemperatureC",
+            "WeatherUV",
+            "RequestWeather"
         ],
-        "projectType": "moddable",
+        "projectType": "native",
         "resources": {
             "media": [
-                { "file": "data/Logo_Animation.png", "name": "LOGO_ANIMATION", "type": "raw" }
+                {
+                    "file": "data/Logo_Animation.png",
+                    "name": "LOGO_ANIMATION",
+                    "type": "raw"
+                },
+                {
+                    "compatibility": "2.7",
+                    "file": "fonts/GoogleSans-Medium.ttf",
+                    "name": "FONT_GOOGLE_SANS_48",
+                    "type": "font"
+                },
+                {
+                    "compatibility": "2.7",
+                    "file": "fonts/GoogleSans-Medium.ttf",
+                    "name": "FONT_GOOGLE_SANS_40",
+                    "type": "font"
+                },
+                {
+                    "compatibility": "2.7",
+                    "file": "fonts/GoogleSans-Medium.ttf",
+                    "name": "FONT_GOOGLE_SANS_26",
+                    "type": "font"
+                },
+                {
+                    "compatibility": "2.7",
+                    "file": "fonts/GoogleSans-Medium.ttf",
+                    "name": "FONT_GOOGLE_SANS_22",
+                    "type": "font"
+                },
+                {
+                    "compatibility": "2.7",
+                    "file": "fonts/GoogleSans-Medium.ttf",
+                    "name": "FONT_GOOGLE_SANS_16",
+                    "type": "font"
+                }
             ]
         },
         "sdkVersion": "3",
