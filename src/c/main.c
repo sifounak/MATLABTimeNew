@@ -32,6 +32,13 @@ typedef enum {
 } DateFormat;
 
 typedef enum {
+  LeadingZeroNone = 0,
+  LeadingZeroDate = 1,
+  LeadingZeroTime = 2,
+  LeadingZeroDateTime = 3,
+} LeadingZeroMode;
+
+typedef enum {
   LogoRotationTriggerOff = 0,
   LogoRotationTriggerDoubleTap = 1,
   LogoRotationTriggerShake = 2,
@@ -45,13 +52,29 @@ typedef struct {
   int32_t temperature_unit;
   int32_t date_format;
   bool use_24_hour;
+  int32_t leading_zero_mode;
+  int32_t complication_left;
+  int32_t complication_middle;
+  int32_t complication_right;
+  bool rotate_side_text;
+  bool vibe_on_disconnect;
+  bool vibe_on_connect;
+  int32_t logo_rotation_trigger;
+} Settings;
+
+typedef struct {
+  GColor background_color;
+  GColor text_color;
+  int32_t temperature_unit;
+  int32_t date_format;
+  bool use_24_hour;
   int32_t complication_left;
   int32_t complication_middle;
   int32_t complication_right;
   bool vibe_on_disconnect;
   bool vibe_on_connect;
   int32_t logo_rotation_trigger;
-} Settings;
+} LegacySettings;
 
 typedef struct {
   int16_t width;
@@ -118,15 +141,31 @@ static bool prv_is_round(void) {
   return bounds.size.w == bounds.size.h;
 }
 
+static bool prv_should_rotate_side_complications(void) {
+  return s_settings.rotate_side_text && prv_is_round();
+}
+
+static bool prv_should_show_date_leading_zero(void) {
+  return s_settings.leading_zero_mode == LeadingZeroDate ||
+         s_settings.leading_zero_mode == LeadingZeroDateTime;
+}
+
+static bool prv_should_show_time_leading_zero(void) {
+  return s_settings.leading_zero_mode == LeadingZeroTime ||
+         s_settings.leading_zero_mode == LeadingZeroDateTime;
+}
+
 static void prv_default_settings(void) {
   s_settings.background_color = GColorBlack;
   s_settings.text_color = GColorWhite;
   s_settings.temperature_unit = TemperatureFahrenheit;
   s_settings.date_format = DateFormatWords;
   s_settings.use_24_hour = false;
+  s_settings.leading_zero_mode = LeadingZeroNone;
   s_settings.complication_left = ComplicationUV;
   s_settings.complication_middle = ComplicationBattery;
   s_settings.complication_right = ComplicationTemperature;
+  s_settings.rotate_side_text = true;
   s_settings.vibe_on_disconnect = true;
   s_settings.vibe_on_connect = true;
   s_settings.logo_rotation_trigger = LogoRotationTriggerOff;
@@ -166,16 +205,42 @@ static bool prv_tuple_get_i32(Tuple *tuple, int32_t *value) {
 static void prv_normalize_settings(void) {
   s_settings.temperature_unit = prv_clamp_i32(s_settings.temperature_unit, 0, 2, TemperatureFahrenheit);
   s_settings.date_format = prv_clamp_i32(s_settings.date_format, 0, 2, DateFormatWords);
+  s_settings.use_24_hour = s_settings.use_24_hour ? true : false;
+  s_settings.leading_zero_mode = prv_clamp_i32(s_settings.leading_zero_mode, 0, 3, LeadingZeroNone);
   s_settings.complication_left = prv_clamp_i32(s_settings.complication_left, 0, 3, ComplicationUV);
   s_settings.complication_middle = prv_clamp_i32(s_settings.complication_middle, 0, 3, ComplicationBattery);
   s_settings.complication_right = prv_clamp_i32(s_settings.complication_right, 0, 3, ComplicationTemperature);
+  s_settings.rotate_side_text = s_settings.rotate_side_text ? true : false;
+  s_settings.vibe_on_disconnect = s_settings.vibe_on_disconnect ? true : false;
+  s_settings.vibe_on_connect = s_settings.vibe_on_connect ? true : false;
   s_settings.logo_rotation_trigger = prv_clamp_i32(s_settings.logo_rotation_trigger, 0, 4, LogoRotationTriggerOff);
+}
+
+static void prv_apply_legacy_settings(const LegacySettings *legacy) {
+  s_settings.background_color = legacy->background_color;
+  s_settings.text_color = legacy->text_color;
+  s_settings.temperature_unit = legacy->temperature_unit;
+  s_settings.date_format = legacy->date_format;
+  s_settings.use_24_hour = legacy->use_24_hour;
+  s_settings.complication_left = legacy->complication_left;
+  s_settings.complication_middle = legacy->complication_middle;
+  s_settings.complication_right = legacy->complication_right;
+  s_settings.vibe_on_disconnect = legacy->vibe_on_disconnect;
+  s_settings.vibe_on_connect = legacy->vibe_on_connect;
+  s_settings.logo_rotation_trigger = legacy->logo_rotation_trigger;
 }
 
 static void prv_load_settings(void) {
   prv_default_settings();
-  if (persist_exists(SETTINGS_KEY) && persist_get_size(SETTINGS_KEY) == (int)sizeof(s_settings)) {
-    persist_read_data(SETTINGS_KEY, &s_settings, sizeof(s_settings));
+  if (persist_exists(SETTINGS_KEY)) {
+    int settings_size = persist_get_size(SETTINGS_KEY);
+    if (settings_size == (int)sizeof(s_settings)) {
+      persist_read_data(SETTINGS_KEY, &s_settings, sizeof(s_settings));
+    } else if (settings_size == (int)sizeof(LegacySettings)) {
+      LegacySettings legacy;
+      persist_read_data(SETTINGS_KEY, &legacy, sizeof(legacy));
+      prv_apply_legacy_settings(&legacy);
+    }
     prv_normalize_settings();
   }
 }
@@ -561,8 +626,14 @@ static GBitmap *prv_create_rotated_complication_bitmap(const char *text) {
 
 static bool prv_update_rotated_complication_bitmap(GBitmap **bitmap, char *cached_text,
                                                    size_t cached_text_size, const char *new_text) {
-  if (!prv_is_round()) {
-    return false;
+  if (!prv_should_rotate_side_complications()) {
+    bool changed = *bitmap || cached_text[0];
+    if (*bitmap) {
+      gbitmap_destroy(*bitmap);
+      *bitmap = NULL;
+    }
+    cached_text[0] = '\0';
+    return changed;
   }
   if (strncmp(cached_text, new_text, cached_text_size) == 0) {
     return false;
@@ -635,18 +706,37 @@ static void prv_update_complications_for_type(ComplicationType type) {
 
 static void prv_update_time_and_date(struct tm *tick_time) {
   if (s_settings.use_24_hour) {
-    strftime(s_time_buffer, sizeof(s_time_buffer), "%H:%M", tick_time);
+    snprintf(s_time_buffer, sizeof(s_time_buffer),
+             prv_should_show_time_leading_zero() ? "%02d:%02d" : "%d:%02d",
+             tick_time->tm_hour, tick_time->tm_min);
   } else {
-    strftime(s_time_buffer, sizeof(s_time_buffer), "%l:%M %p", tick_time);
+    strftime(s_time_buffer, sizeof(s_time_buffer),
+             prv_should_show_time_leading_zero() ? "%I:%M %p" : "%l:%M %p",
+             tick_time);
   }
   text_layer_set_text(s_time_layer, s_time_buffer);
 
+  bool show_date_leading_zero = prv_should_show_date_leading_zero();
+  int year = tick_time->tm_year + 1900;
+  int month = tick_time->tm_mon + 1;
+  int day = tick_time->tm_mday;
+
   if (s_settings.date_format == DateFormatMDY) {
-    strftime(s_date_buffer, sizeof(s_date_buffer), "%m/%d/%Y", tick_time);
+    snprintf(s_date_buffer, sizeof(s_date_buffer),
+             show_date_leading_zero ? "%02d/%02d/%04d" : "%d/%d/%04d",
+             month, day, year);
   } else if (s_settings.date_format == DateFormatDMY) {
-    strftime(s_date_buffer, sizeof(s_date_buffer), "%d/%m/%Y", tick_time);
+    snprintf(s_date_buffer, sizeof(s_date_buffer),
+             show_date_leading_zero ? "%02d/%02d/%04d" : "%d/%d/%04d",
+             day, month, year);
   } else {
-    strftime(s_date_buffer, sizeof(s_date_buffer), "%a %b %e", tick_time);
+    if (show_date_leading_zero) {
+      strftime(s_date_buffer, sizeof(s_date_buffer), "%a %b %d", tick_time);
+    } else {
+      char date_prefix[12];
+      strftime(date_prefix, sizeof(date_prefix), "%a %b", tick_time);
+      snprintf(s_date_buffer, sizeof(s_date_buffer), "%s %d", date_prefix, day);
+    }
   }
   text_layer_set_text(s_date_layer, s_date_buffer);
 }
@@ -705,7 +795,7 @@ static void prv_draw_rotated_complication(GContext *ctx, GBitmap *bitmap, GPoint
 }
 
 static void prv_rotated_complication_update_proc(Layer *layer, GContext *ctx) {
-  if (!prv_is_round()) {
+  if (!prv_should_rotate_side_complications()) {
     return;
   }
 
@@ -734,6 +824,7 @@ static void prv_apply_colors(void) {
 static void prv_layout_layers(void) {
   GRect bounds = layer_get_unobstructed_bounds(s_window_layer);
   bool is_round = prv_is_round();
+  bool rotate_side_text = is_round && s_settings.rotate_side_text;
   int16_t width = bounds.size.w;
   int16_t height = bounds.size.h;
   int16_t time_layout_height = is_round ? 48 : 40;
@@ -762,9 +853,9 @@ static void prv_layout_layers(void) {
     layer_set_frame(text_layer_get_layer(s_middle_layer), GRect(width / 3, complication_y + complication_text_layer_offset, width / 3, small_font_height + 4));
     layer_set_frame(text_layer_get_layer(s_right_layer), GRect(width - 15 - width / 3, complication_y + complication_text_layer_offset, width / 3, small_font_height + 4));
   } else {
-    layer_set_hidden(text_layer_get_layer(s_left_layer), true);
-    layer_set_hidden(text_layer_get_layer(s_right_layer), true);
-    layer_set_hidden(s_rotated_complication_layer, false);
+    layer_set_hidden(text_layer_get_layer(s_left_layer), rotate_side_text);
+    layer_set_hidden(text_layer_get_layer(s_right_layer), rotate_side_text);
+    layer_set_hidden(s_rotated_complication_layer, !rotate_side_text);
 
     int16_t gap = 14;
     int16_t safe_inset = 20;
@@ -936,6 +1027,12 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
     changed_settings = true;
   }
 
+  Tuple *leading_zeros_t = dict_find(iter, MESSAGE_KEY_LeadingZeros);
+  if (prv_tuple_get_i32(leading_zeros_t, &value)) {
+    s_settings.leading_zero_mode = prv_clamp_i32(value, 0, 3, LeadingZeroNone);
+    changed_settings = true;
+  }
+
   Tuple *left_t = dict_find(iter, MESSAGE_KEY_ComplicationLeft);
   if (prv_tuple_get_i32(left_t, &value)) {
     s_settings.complication_left = prv_clamp_i32(value, 0, 3, ComplicationUV);
@@ -951,6 +1048,12 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   Tuple *right_t = dict_find(iter, MESSAGE_KEY_ComplicationRight);
   if (prv_tuple_get_i32(right_t, &value)) {
     s_settings.complication_right = prv_clamp_i32(value, 0, 3, ComplicationTemperature);
+    changed_settings = true;
+  }
+
+  Tuple *rotate_side_t = dict_find(iter, MESSAGE_KEY_RotateSideText);
+  if (prv_tuple_get_i32(rotate_side_t, &value)) {
+    s_settings.rotate_side_text = value == 1;
     changed_settings = true;
   }
 

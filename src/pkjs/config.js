@@ -8,6 +8,28 @@ module.exports = [
     "items": [
       {
         "type": "heading",
+        "defaultValue": "Logo Rotation"
+      },
+      {
+        "type": "select",
+        "messageKey": "LogoRotationTrigger",
+        "label": "Trigger:",
+        "defaultValue": "off",
+        "options": [
+          { "label": "Off", "value": "off" },
+          { "label": "Double tap", "value": "doubleTap" },
+          { "label": "Shake", "value": "shake" },
+          { "label": "Minute", "value": "minute" },
+          { "label": "Hour", "value": "hour" }
+        ]
+      }
+    ]
+  },
+  {
+    "type": "section",
+    "items": [
+      {
+        "type": "heading",
         "defaultValue": "Colors"
       },
       {
@@ -29,13 +51,25 @@ module.exports = [
     "items": [
       {
         "type": "heading",
-        "defaultValue": "Units & Display"
+        "defaultValue": "Units / Format"
       },
       {
         "type": "toggle",
         "messageKey": "HourFormat",
         "label": "24-Hour Clock",
         "defaultValue": false
+      },
+      {
+        "type": "select",
+        "messageKey": "LeadingZeros",
+        "label": "Show Leading Zeros",
+        "defaultValue": "none",
+        "options": [
+          { "label": "None", "value": "none" },
+          { "label": "Date", "value": "date" },
+          { "label": "Time", "value": "time" },
+          { "label": "Date and Time", "value": "dateTime" }
+        ]
       },
       {
         "type": "select",
@@ -67,6 +101,13 @@ module.exports = [
       {
         "type": "heading",
         "defaultValue": "Complications"
+      },
+      {
+        "type": "toggle",
+        "messageKey": "RotateSideText",
+        "label": "Curved Complication Layout",
+        "defaultValue": true,
+        "description": "(Gabbro only) Angle complication text to match curvature of round displays. Turn this off for better battery efficiency."
       },
       {
         "type": "select",
@@ -102,28 +143,6 @@ module.exports = [
           { "label": "Battery", "value": "battery" },
           { "label": "Temperature", "value": "temperature" },
           { "label": "UV Index", "value": "uv" }
-        ]
-      }
-    ]
-  },
-  {
-    "type": "section",
-    "items": [
-      {
-        "type": "heading",
-        "defaultValue": "Logo Rotation"
-      },
-      {
-        "type": "select",
-        "messageKey": "LogoRotationTrigger",
-        "label": "Trigger:",
-        "defaultValue": "off",
-        "options": [
-          { "label": "Off", "value": "off" },
-          { "label": "Double tap", "value": "doubleTap" },
-          { "label": "Shake", "value": "shake" },
-          { "label": "Minute", "value": "minute" },
-          { "label": "Hour", "value": "hour" }
         ]
       }
     ]

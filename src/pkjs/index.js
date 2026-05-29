@@ -9,6 +9,7 @@ var WEATHER_UPDATED_AT_KEY = 'weather-updated-at';
 
 var INTEGER_SETTING_KEYS = [
   'HourFormat',
+  'RotateSideText',
   'VibeOnDisconnect',
   'VibeOnConnect'
 ];
@@ -23,6 +24,11 @@ var SELECT_SETTING_DEFINITIONS = {
     values: {'words': 0, 'mdy': 1, 'dmy': 2, '0': 0, '1': 1, '2': 2},
     configValues: ['words', 'mdy', 'dmy'],
     fallback: 'words'
+  },
+  'LeadingZeros': {
+    values: {'none': 0, 'date': 1, 'time': 2, 'dateTime': 3, '0': 0, '1': 1, '2': 2, '3': 3},
+    configValues: ['none', 'date', 'time', 'dateTime'],
+    fallback: 'none'
   },
   'ComplicationLeft': {
     values: {'empty': 0, 'temperature': 1, 'battery': 2, 'uv': 3, '0': 0, '1': 1, '2': 2, '3': 3},
