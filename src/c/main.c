@@ -5,6 +5,9 @@
 #define WEATHER_REFRESH_MINUTES 60
 #define DOUBLE_TAP_WINDOW_MS 500
 #define DEGREE_SYMBOL "\xC2\xB0"
+#define ROTATED_COMPLICATION_BITMAP_WIDTH 104
+#define ROTATED_COMPLICATION_BITMAP_HEIGHT 32
+#define ROTATED_COMPLICATION_GLYPH_SPACING 1
 
 typedef enum {
   ComplicationEmpty = 0,
@@ -47,6 +50,12 @@ typedef struct {
   int32_t logo_rotation_trigger;
 } Settings;
 
+typedef struct {
+  int16_t width;
+  int16_t height;
+  const uint16_t *rows;
+} RotatedGlyph;
+
 static Settings s_settings;
 
 static Window *s_window;
@@ -58,9 +67,12 @@ static TextLayer *s_left_layer;
 static TextLayer *s_middle_layer;
 static TextLayer *s_right_layer;
 static Layer *s_bluetooth_layer;
+static Layer *s_rotated_complication_layer;
 
 static GBitmapSequence *s_logo_sequence;
 static GBitmap *s_logo_bitmap;
+static GBitmap *s_rotated_left_bitmap;
+static GBitmap *s_rotated_right_bitmap;
 static bool s_logo_animating;
 static AppTimer *s_refresh_timer;
 static AppTimer *s_double_tap_timer;
@@ -311,7 +323,7 @@ static void prv_format_complication(int32_t type, char *buffer, size_t buffer_si
       snprintf(buffer, buffer_size, "%d%%", s_battery_percent);
     }
   } else if (type == ComplicationUV && s_has_weather) {
-    snprintf(buffer, buffer_size, "UV %ld", (long)s_weather_uv);
+    snprintf(buffer, buffer_size, "UV%ld", (long)s_weather_uv);
   }
 }
 
@@ -325,11 +337,193 @@ static int16_t prv_text_width(const char *text, GFont font) {
   return size.w;
 }
 
+static const RotatedGlyph *prv_rotated_glyph(const char **cursor) {
+  static const uint16_t rows_0[] = {0x38, 0xfc, 0xc6, 0x186, 0x183, 0x183, 0x183, 0x183, 0x182, 0x186, 0xee, 0x7c};
+  static const uint16_t rows_1[] = {0x3, 0xf, 0xb, 0x3, 0x3, 0x3, 0x3, 0x3, 0x3, 0x3, 0x3};
+  static const uint16_t rows_2[] = {0x1c, 0x7e, 0x63, 0x3, 0x3, 0x6, 0xe, 0x1c, 0x38, 0x30, 0x7f, 0x7f};
+  static const uint16_t rows_3[] = {0x1c, 0x3e, 0x63, 0x3, 0x3, 0x1e, 0x1e, 0x3, 0x3, 0x63, 0x77, 0x3e};
+  static const uint16_t rows_4[] = {0xe, 0xe, 0x1e, 0x36, 0x26, 0x66, 0xc6, 0xff, 0xff, 0x6, 0x6};
+  static const uint16_t rows_5[] = {0x3f, 0x20, 0x60, 0x60, 0x7e, 0x73, 0x3, 0x1, 0x63, 0x77, 0x3e};
+  static const uint16_t rows_6[] = {0x4, 0xc, 0xc, 0x18, 0x30, 0x3e, 0x77, 0x63, 0x41, 0x63, 0x77, 0x3e};
+  static const uint16_t rows_7[] = {0x7f, 0x3, 0x6, 0x6, 0xc, 0xc, 0x18, 0x18, 0x30, 0x30, 0x60};
+  static const uint16_t rows_8[] = {0x1c, 0x3e, 0x63, 0x63, 0x63, 0x3e, 0x3e, 0x63, 0x61, 0x61, 0x77, 0x3e};
+  static const uint16_t rows_9[] = {0x1c, 0x3e, 0x63, 0x41, 0x41, 0x63, 0x3f, 0x1e, 0x6, 0xc, 0x18, 0x18};
+  static const uint16_t rows_c[] = {0x38, 0xfe, 0x1c3, 0x300, 0x300, 0x300, 0x200, 0x300, 0x300, 0x183, 0x1e7, 0x7e};
+  static const uint16_t rows_f[] = {0x7f, 0x60, 0x60, 0x60, 0x60, 0x7f, 0x60, 0x60, 0x60, 0x60, 0x60};
+  static const uint16_t rows_g[] = {0x70, 0x1fc, 0x386, 0x600, 0x600, 0x600, 0x41f, 0x601, 0x603, 0x303, 0x3ce, 0xfc};
+  static const uint16_t rows_h[] = {0x183, 0x183, 0x183, 0x183, 0x1ff, 0x1ff, 0x183, 0x183, 0x183, 0x183, 0x183};
+  static const uint16_t rows_k[] = {0x187, 0x18c, 0x19c, 0x1b8, 0x1b0, 0x1f8, 0x1d8, 0x18c, 0x18e, 0x186, 0x183};
+  static const uint16_t rows_u[] = {0x183, 0x183, 0x183, 0x183, 0x183, 0x183, 0x183, 0x183, 0x183, 0xee, 0x7c};
+  static const uint16_t rows_v[] = {0x303, 0x183, 0x186, 0xc6, 0xc4, 0xcc, 0x6c, 0x68, 0x78, 0x38, 0x30};
+  static const uint16_t rows_percent[] = {0x708, 0xf8c, 0x898, 0x890, 0xfb0, 0x760, 0x4e, 0xdf, 0x191, 0x111, 0x31f, 0x60e};
+  static const uint16_t rows_degree[] = {0x6, 0xa, 0x19, 0xe};
+  static const RotatedGlyph glyph_0 = {9, 12, rows_0};
+  static const RotatedGlyph glyph_1 = {4, 11, rows_1};
+  static const RotatedGlyph glyph_2 = {7, 12, rows_2};
+  static const RotatedGlyph glyph_3 = {7, 12, rows_3};
+  static const RotatedGlyph glyph_4 = {8, 11, rows_4};
+  static const RotatedGlyph glyph_5 = {7, 11, rows_5};
+  static const RotatedGlyph glyph_6 = {7, 12, rows_6};
+  static const RotatedGlyph glyph_7 = {7, 11, rows_7};
+  static const RotatedGlyph glyph_8 = {7, 12, rows_8};
+  static const RotatedGlyph glyph_9 = {7, 12, rows_9};
+  static const RotatedGlyph glyph_c = {10, 12, rows_c};
+  static const RotatedGlyph glyph_f = {7, 11, rows_f};
+  static const RotatedGlyph glyph_g = {11, 12, rows_g};
+  static const RotatedGlyph glyph_h = {9, 11, rows_h};
+  static const RotatedGlyph glyph_k = {9, 11, rows_k};
+  static const RotatedGlyph glyph_u = {9, 11, rows_u};
+  static const RotatedGlyph glyph_v = {10, 11, rows_v};
+  static const RotatedGlyph glyph_percent = {12, 12, rows_percent};
+  static const RotatedGlyph glyph_degree = {5, 4, rows_degree};
+
+  unsigned char c = (unsigned char)**cursor;
+
+  if (c == '\0') {
+    return NULL;
+  }
+  if (c == 0xc2 && (unsigned char)(*cursor)[1] == 0xb0) {
+    *cursor += 2;
+    return &glyph_degree;
+  }
+
+  (*cursor)++;
+  if (c >= 'a' && c <= 'z') {
+    c = (unsigned char)(c - 'a' + 'A');
+  }
+
+  switch (c) {
+    case '0': return &glyph_0;
+    case '1': return &glyph_1;
+    case '2': return &glyph_2;
+    case '3': return &glyph_3;
+    case '4': return &glyph_4;
+    case '5': return &glyph_5;
+    case '6': return &glyph_6;
+    case '7': return &glyph_7;
+    case '8': return &glyph_8;
+    case '9': return &glyph_9;
+    case 'C': return &glyph_c;
+    case 'F': return &glyph_f;
+    case 'G': return &glyph_g;
+    case 'H': return &glyph_h;
+    case 'K': return &glyph_k;
+    case 'U': return &glyph_u;
+    case 'V': return &glyph_v;
+    case '%': return &glyph_percent;
+    case ' ': return NULL;
+    default:
+      return &glyph_0;
+  }
+}
+
+static int16_t prv_rotated_text_bitmap_width(const char *text) {
+  int16_t width = 0;
+  bool has_glyph = false;
+  const char *cursor = text;
+
+  while (cursor && cursor[0]) {
+    if (has_glyph) {
+      width += ROTATED_COMPLICATION_GLYPH_SPACING;
+    }
+    const RotatedGlyph *glyph = prv_rotated_glyph(&cursor);
+    width += glyph ? glyph->width : 4;
+    has_glyph = true;
+  }
+
+  return width;
+}
+
+static void prv_set_rotated_text_pixel(GBitmap *bitmap, int16_t x, int16_t y, uint8_t color) {
+  GRect bounds = gbitmap_get_bounds(bitmap);
+  if (x < 0 || y < 0 || x >= bounds.size.w || y >= bounds.size.h) {
+    return;
+  }
+
+  uint8_t *data = gbitmap_get_data(bitmap);
+  uint16_t stride = gbitmap_get_bytes_per_row(bitmap);
+  data[y * stride + x] = color;
+}
+
+static void prv_draw_rotated_text_glyph(GBitmap *bitmap, const RotatedGlyph *glyph,
+                                        int16_t x, int16_t y, uint8_t color) {
+  if (!glyph) {
+    return;
+  }
+
+  for (int16_t row = 0; row < glyph->height; row++) {
+    for (int16_t col = 0; col < glyph->width; col++) {
+      if (!(glyph->rows[row] & (1 << (glyph->width - col - 1)))) {
+        continue;
+      }
+      prv_set_rotated_text_pixel(bitmap, x + col, y + row, color);
+    }
+  }
+}
+
+static void prv_destroy_rotated_complication_bitmaps(void) {
+  if (s_rotated_left_bitmap) {
+    gbitmap_destroy(s_rotated_left_bitmap);
+    s_rotated_left_bitmap = NULL;
+  }
+  if (s_rotated_right_bitmap) {
+    gbitmap_destroy(s_rotated_right_bitmap);
+    s_rotated_right_bitmap = NULL;
+  }
+}
+
+static GBitmap *prv_create_rotated_complication_bitmap(const char *text) {
+  if (!text || !text[0]) {
+    return NULL;
+  }
+
+  GSize bitmap_size = GSize(ROTATED_COMPLICATION_BITMAP_WIDTH, ROTATED_COMPLICATION_BITMAP_HEIGHT);
+  GRect bitmap_bounds = GRect(0, 0, bitmap_size.w, bitmap_size.h);
+  GBitmap *bitmap = gbitmap_create_blank(bitmap_size, GBitmapFormat8Bit);
+  if (!bitmap) {
+    return NULL;
+  }
+
+  uint8_t *data = gbitmap_get_data(bitmap);
+  uint16_t stride = gbitmap_get_bytes_per_row(bitmap);
+  memset(data, 0, stride * bitmap_bounds.size.h);
+
+  int16_t text_width = prv_rotated_text_bitmap_width(text);
+  int16_t x = (bitmap_bounds.size.w - text_width) / 2;
+  int16_t y = (bitmap_bounds.size.h - 16) / 2 + 2;
+  uint8_t text_color = s_settings.text_color.argb;
+  const char *cursor = text;
+
+  while (cursor && cursor[0]) {
+    const RotatedGlyph *glyph = prv_rotated_glyph(&cursor);
+    prv_draw_rotated_text_glyph(bitmap, glyph, x, y, text_color);
+    x += (glyph ? glyph->width : 4) + ROTATED_COMPLICATION_GLYPH_SPACING;
+  }
+
+  return bitmap;
+}
+
+static void prv_update_rotated_complication_bitmaps(void) {
+  prv_destroy_rotated_complication_bitmaps();
+
+  if (!prv_is_round()) {
+    return;
+  }
+
+  s_rotated_left_bitmap = prv_create_rotated_complication_bitmap(s_left_buffer);
+  s_rotated_right_bitmap = prv_create_rotated_complication_bitmap(s_right_buffer);
+
+  if (s_rotated_complication_layer) {
+    layer_mark_dirty(s_rotated_complication_layer);
+  }
+}
+
 static void prv_update_complications(void) {
   prv_format_complication(s_settings.complication_left, s_left_buffer, sizeof(s_left_buffer));
   prv_format_complication(s_settings.complication_middle, s_middle_buffer, sizeof(s_middle_buffer));
   prv_format_complication(s_settings.complication_right, s_right_buffer, sizeof(s_right_buffer));
 
+  prv_update_rotated_complication_bitmaps();
   prv_layout_layers();
   text_layer_set_text(s_left_layer, s_left_buffer);
   text_layer_set_text(s_middle_layer, s_middle_buffer);
@@ -380,6 +574,46 @@ static void prv_bluetooth_update_proc(Layer *layer, GContext *ctx) {
   graphics_draw_line(ctx, GPoint(mid_x, mid_y + 2 * length), GPoint(mid_x + length, mid_y + length));
 }
 
+static GPoint prv_edge_point_for_degrees(GRect bounds, int32_t degrees) {
+  int16_t center_x = bounds.size.w / 2;
+  int16_t center_y = bounds.size.h / 2;
+  int16_t radius = (bounds.size.w < bounds.size.h ? bounds.size.w : bounds.size.h) / 2 -
+                   ROTATED_COMPLICATION_BITMAP_HEIGHT / 2;
+
+  if (degrees == 295) {
+    return GPoint(center_x + radius * 423 / 1000, center_y + radius * 906 / 1000);
+  }
+  if (degrees == 245) {
+    return GPoint(center_x - radius * 423 / 1000, center_y + radius * 906 / 1000);
+  }
+
+  return GPoint(center_x, center_y);
+}
+
+static void prv_draw_rotated_complication(GContext *ctx, GBitmap *bitmap, GPoint destination_center,
+                                          int32_t angle) {
+  if (!bitmap) {
+    return;
+  }
+
+  GRect bitmap_bounds = gbitmap_get_bounds(bitmap);
+  GPoint source_center = GPoint(bitmap_bounds.size.w / 2, bitmap_bounds.size.h / 2);
+  graphics_draw_rotated_bitmap(ctx, bitmap, source_center, angle, destination_center);
+}
+
+static void prv_rotated_complication_update_proc(Layer *layer, GContext *ctx) {
+  if (!prv_is_round()) {
+    return;
+  }
+
+  graphics_context_set_compositing_mode(ctx, GCompOpSet);
+  GRect bounds = layer_get_bounds(layer);
+  prv_draw_rotated_complication(ctx, s_rotated_left_bitmap, prv_edge_point_for_degrees(bounds, 245),
+                                TRIG_MAX_ANGLE * 25 / 360);
+  prv_draw_rotated_complication(ctx, s_rotated_right_bitmap, prv_edge_point_for_degrees(bounds, 295),
+                                TRIG_MAX_ANGLE - TRIG_MAX_ANGLE * 25 / 360);
+}
+
 static void prv_apply_colors(void) {
   window_set_background_color(s_window, s_settings.background_color);
   text_layer_set_text_color(s_time_layer, s_settings.text_color);
@@ -389,6 +623,7 @@ static void prv_apply_colors(void) {
   text_layer_set_text_color(s_right_layer, s_settings.text_color);
   bitmap_layer_set_background_color(s_logo_layer, s_settings.background_color);
   prv_load_first_logo_frame();
+  prv_update_rotated_complication_bitmaps();
   layer_mark_dirty(s_bluetooth_layer);
 }
 
@@ -411,6 +646,10 @@ static void prv_layout_layers(void) {
   layer_set_frame(text_layer_get_layer(s_date_layer), GRect(0, date_y + date_text_layer_offset, width, date_font_height + 6));
 
   if (!is_round) {
+    layer_set_hidden(text_layer_get_layer(s_left_layer), false);
+    layer_set_hidden(text_layer_get_layer(s_right_layer), false);
+    layer_set_hidden(s_rotated_complication_layer, true);
+
     text_layer_set_text_alignment(s_left_layer, GTextAlignmentLeft);
     text_layer_set_text_alignment(s_middle_layer, GTextAlignmentCenter);
     text_layer_set_text_alignment(s_right_layer, GTextAlignmentRight);
@@ -419,6 +658,10 @@ static void prv_layout_layers(void) {
     layer_set_frame(text_layer_get_layer(s_middle_layer), GRect(width / 3, complication_y + complication_text_layer_offset, width / 3, small_font_height + 4));
     layer_set_frame(text_layer_get_layer(s_right_layer), GRect(width - 15 - width / 3, complication_y + complication_text_layer_offset, width / 3, small_font_height + 4));
   } else {
+    layer_set_hidden(text_layer_get_layer(s_left_layer), true);
+    layer_set_hidden(text_layer_get_layer(s_right_layer), true);
+    layer_set_hidden(s_rotated_complication_layer, false);
+
     int16_t gap = 14;
     int16_t safe_inset = 20;
     int16_t middle_width = prv_text_width(s_middle_buffer, s_small_font);
@@ -473,6 +716,7 @@ static void prv_layout_layers(void) {
   }
 
   layer_set_frame(s_bluetooth_layer, GRect(width * 82 / 100 - 20, time_y - 30, 40, 40));
+  layer_set_frame(s_rotated_complication_layer, GRect(0, 0, width, height));
 }
 
 static void prv_refresh_logo_callback(void *context) {
@@ -670,6 +914,8 @@ static void prv_main_window_load(Window *window) {
 
   s_bluetooth_layer = layer_create(GRectZero);
   layer_set_update_proc(s_bluetooth_layer, prv_bluetooth_update_proc);
+  s_rotated_complication_layer = layer_create(GRectZero);
+  layer_set_update_proc(s_rotated_complication_layer, prv_rotated_complication_update_proc);
 
   layer_add_child(s_window_layer, bitmap_layer_get_layer(s_logo_layer));
   layer_add_child(s_window_layer, text_layer_get_layer(s_time_layer));
@@ -678,6 +924,7 @@ static void prv_main_window_load(Window *window) {
   layer_add_child(s_window_layer, text_layer_get_layer(s_middle_layer));
   layer_add_child(s_window_layer, text_layer_get_layer(s_right_layer));
   layer_add_child(s_window_layer, s_bluetooth_layer);
+  layer_add_child(s_window_layer, s_rotated_complication_layer);
 
   prv_layout_layers();
   prv_load_first_logo_frame();
@@ -698,7 +945,9 @@ static void prv_main_window_unload(Window *window) {
     s_refresh_timer = NULL;
   }
   prv_clear_double_tap_state();
+  prv_destroy_rotated_complication_bitmaps();
 
+  layer_destroy(s_rotated_complication_layer);
   layer_destroy(s_bluetooth_layer);
   text_layer_destroy(s_right_layer);
   text_layer_destroy(s_middle_layer);
