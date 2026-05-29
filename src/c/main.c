@@ -98,6 +98,8 @@ static char s_date_buffer[24];
 static char s_left_buffer[20];
 static char s_middle_buffer[20];
 static char s_right_buffer[20];
+static char s_rotated_left_buffer[20];
+static char s_rotated_right_buffer[20];
 
 static void prv_layout_layers(void);
 
@@ -470,6 +472,8 @@ static void prv_destroy_rotated_complication_bitmaps(void) {
     gbitmap_destroy(s_rotated_right_bitmap);
     s_rotated_right_bitmap = NULL;
   }
+  s_rotated_left_buffer[0] = '\0';
+  s_rotated_right_buffer[0] = '\0';
 }
 
 static GBitmap *prv_create_rotated_complication_bitmap(const char *text) {
@@ -503,17 +507,38 @@ static GBitmap *prv_create_rotated_complication_bitmap(const char *text) {
   return bitmap;
 }
 
-static void prv_update_rotated_complication_bitmaps(void) {
-  prv_destroy_rotated_complication_bitmaps();
-
+static bool prv_update_rotated_complication_bitmap(GBitmap **bitmap, char *cached_text,
+                                                   size_t cached_text_size, const char *new_text) {
   if (!prv_is_round()) {
-    return;
+    return false;
+  }
+  if (strncmp(cached_text, new_text, cached_text_size) == 0) {
+    return false;
   }
 
-  s_rotated_left_bitmap = prv_create_rotated_complication_bitmap(s_left_buffer);
-  s_rotated_right_bitmap = prv_create_rotated_complication_bitmap(s_right_buffer);
+  if (*bitmap) {
+    gbitmap_destroy(*bitmap);
+    *bitmap = NULL;
+  }
 
-  if (s_rotated_complication_layer) {
+  strncpy(cached_text, new_text, cached_text_size);
+  cached_text[cached_text_size - 1] = '\0';
+  *bitmap = prv_create_rotated_complication_bitmap(cached_text);
+  return true;
+}
+
+static bool prv_update_rotated_left_bitmap(void) {
+  return prv_update_rotated_complication_bitmap(&s_rotated_left_bitmap, s_rotated_left_buffer,
+                                                sizeof(s_rotated_left_buffer), s_left_buffer);
+}
+
+static bool prv_update_rotated_right_bitmap(void) {
+  return prv_update_rotated_complication_bitmap(&s_rotated_right_bitmap, s_rotated_right_buffer,
+                                                sizeof(s_rotated_right_buffer), s_right_buffer);
+}
+
+static void prv_mark_rotated_complications_dirty_if_needed(bool changed) {
+  if (changed && s_rotated_complication_layer) {
     layer_mark_dirty(s_rotated_complication_layer);
   }
 }
@@ -523,11 +548,37 @@ static void prv_update_complications(void) {
   prv_format_complication(s_settings.complication_middle, s_middle_buffer, sizeof(s_middle_buffer));
   prv_format_complication(s_settings.complication_right, s_right_buffer, sizeof(s_right_buffer));
 
-  prv_update_rotated_complication_bitmaps();
+  bool changed_rotated = prv_update_rotated_left_bitmap();
+  changed_rotated = prv_update_rotated_right_bitmap() || changed_rotated;
+  prv_mark_rotated_complications_dirty_if_needed(changed_rotated);
   prv_layout_layers();
   text_layer_set_text(s_left_layer, s_left_buffer);
   text_layer_set_text(s_middle_layer, s_middle_buffer);
   text_layer_set_text(s_right_layer, s_right_buffer);
+}
+
+static void prv_update_complications_for_type(ComplicationType type) {
+  bool changed_rotated = false;
+
+  if (s_settings.complication_left == type) {
+    prv_format_complication(s_settings.complication_left, s_left_buffer, sizeof(s_left_buffer));
+    text_layer_set_text(s_left_layer, s_left_buffer);
+    changed_rotated = prv_update_rotated_left_bitmap();
+  }
+
+  if (s_settings.complication_middle == type) {
+    prv_format_complication(s_settings.complication_middle, s_middle_buffer, sizeof(s_middle_buffer));
+    text_layer_set_text(s_middle_layer, s_middle_buffer);
+    prv_layout_layers();
+  }
+
+  if (s_settings.complication_right == type) {
+    prv_format_complication(s_settings.complication_right, s_right_buffer, sizeof(s_right_buffer));
+    text_layer_set_text(s_right_layer, s_right_buffer);
+    changed_rotated = prv_update_rotated_right_bitmap() || changed_rotated;
+  }
+
+  prv_mark_rotated_complications_dirty_if_needed(changed_rotated);
 }
 
 static void prv_update_time_and_date(struct tm *tick_time) {
@@ -623,7 +674,8 @@ static void prv_apply_colors(void) {
   text_layer_set_text_color(s_right_layer, s_settings.text_color);
   bitmap_layer_set_background_color(s_logo_layer, s_settings.background_color);
   prv_load_first_logo_frame();
-  prv_update_rotated_complication_bitmaps();
+  s_rotated_left_buffer[0] = '\0';
+  s_rotated_right_buffer[0] = '\0';
   layer_mark_dirty(s_bluetooth_layer);
 }
 
@@ -744,9 +796,14 @@ static void prv_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 }
 
 static void prv_battery_handler(BatteryChargeState state) {
+  bool battery_changed = s_battery_percent != state.charge_percent ||
+                         s_battery_charging != state.is_charging;
   s_battery_percent = state.charge_percent;
   s_battery_charging = state.is_charging;
-  prv_update_complications();
+
+  if (battery_changed) {
+    prv_update_complications_for_type(ComplicationBattery);
+  }
 }
 
 static void prv_connection_handler(bool connected) {
@@ -770,21 +827,23 @@ static void prv_unobstructed_change(AnimationProgress progress, void *context) {
 
 static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   bool changed_settings = false;
-  bool changed_weather = false;
+  bool changed_temperature = false;
+  bool changed_uv = false;
+  bool had_weather = s_has_weather;
   int32_t value;
 
   Tuple *weather_temp_t = dict_find(iter, MESSAGE_KEY_WeatherTemperatureC);
   if (prv_tuple_get_i32(weather_temp_t, &value)) {
+    changed_temperature = !had_weather || s_weather_temp_c != value;
     s_weather_temp_c = value;
     s_has_weather = true;
-    changed_weather = true;
   }
 
   Tuple *weather_uv_t = dict_find(iter, MESSAGE_KEY_WeatherUV);
   if (prv_tuple_get_i32(weather_uv_t, &value)) {
-    s_weather_uv = value;
+    changed_uv = !had_weather || s_weather_uv != value;
     s_has_weather = true;
-    changed_weather = true;
+    s_weather_uv = value;
   }
 
   Tuple *bg_t = dict_find(iter, MESSAGE_KEY_BackgroundColor);
@@ -860,8 +919,15 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
     prv_update_now();
   }
 
-  if (changed_settings || changed_weather) {
+  if (changed_settings) {
     prv_update_complications();
+  } else {
+    if (changed_temperature) {
+      prv_update_complications_for_type(ComplicationTemperature);
+    }
+    if (changed_uv) {
+      prv_update_complications_for_type(ComplicationUV);
+    }
   }
 }
 
