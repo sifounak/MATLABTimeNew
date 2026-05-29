@@ -4,6 +4,9 @@ var clayConfig = require('./config');
 var customClay = require('./custom-clay');
 var clay = new Clay(clayConfig, customClay, { autoHandleEvents: false });
 
+var WEATHER_MIN_UPDATE_MS = 30 * 60 * 1000;
+var WEATHER_UPDATED_AT_KEY = 'weather-updated-at';
+
 var INTEGER_SETTING_KEYS = [
   'HourFormat',
   'VibeOnDisconnect',
@@ -141,6 +144,7 @@ function locationSuccess(pos) {
 
       Pebble.sendAppMessage(dictionary,
         function() {
+          localStorage.setItem(WEATHER_UPDATED_AT_KEY, Date.now().toString());
           console.log('Weather sent to watch');
         },
         function(e) {
@@ -165,9 +169,25 @@ function getWeather() {
   );
 }
 
+function weatherShouldUpdate() {
+  var updatedAt = parseInt(localStorage.getItem(WEATHER_UPDATED_AT_KEY), 10);
+
+  if (isNaN(updatedAt)) {
+    return true;
+  }
+
+  return Date.now() - updatedAt >= WEATHER_MIN_UPDATE_MS;
+}
+
+function getWeatherIfStale() {
+  if (weatherShouldUpdate()) {
+    getWeather();
+  }
+}
+
 Pebble.addEventListener('ready', function() {
   console.log('PebbleKit JS ready');
-  getWeather();
+  getWeatherIfStale();
 });
 
 Pebble.addEventListener('showConfiguration', function() {

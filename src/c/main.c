@@ -2,11 +2,14 @@
 #include <stdlib.h>
 
 #define SETTINGS_KEY 1
-#define WEATHER_REFRESH_MINUTES 60
+#define WEATHER_CACHE_KEY 2
+#define WEATHER_REFRESH_MINUTES 30
+#define WEATHER_MIN_UPDATE_SECONDS (30 * 60)
 #define DOUBLE_TAP_WINDOW_MS 500
 #define DEGREE_SYMBOL "\xC2\xB0"
-#define ROTATED_COMPLICATION_BITMAP_WIDTH 104
-#define ROTATED_COMPLICATION_BITMAP_HEIGHT 32
+#define ROTATED_COMPLICATION_BITMAP_WIDTH 56
+#define ROTATED_COMPLICATION_BITMAP_HEIGHT 18
+#define ROTATED_COMPLICATION_EDGE_INSET 16
 #define ROTATED_COMPLICATION_GLYPH_SPACING 1
 
 typedef enum {
@@ -56,6 +59,12 @@ typedef struct {
   const uint16_t *rows;
 } RotatedGlyph;
 
+typedef struct {
+  int32_t temperature_c;
+  int32_t uv;
+  uint32_t updated_at;
+} WeatherCache;
+
 static Settings s_settings;
 
 static Window *s_window;
@@ -92,6 +101,7 @@ static bool s_battery_charging;
 static bool s_has_weather;
 static int32_t s_weather_temp_c;
 static int32_t s_weather_uv;
+static uint32_t s_weather_updated_at;
 
 static char s_time_buffer[12];
 static char s_date_buffer[24];
@@ -174,6 +184,46 @@ static void prv_save_settings(void) {
   persist_write_data(SETTINGS_KEY, &s_settings, sizeof(s_settings));
 }
 
+static void prv_load_weather_cache(void) {
+  WeatherCache cache;
+  if (persist_exists(WEATHER_CACHE_KEY) &&
+      persist_get_size(WEATHER_CACHE_KEY) == (int)sizeof(cache)) {
+    persist_read_data(WEATHER_CACHE_KEY, &cache, sizeof(cache));
+    if (cache.updated_at > 0) {
+      s_weather_temp_c = cache.temperature_c;
+      s_weather_uv = cache.uv;
+      s_weather_updated_at = cache.updated_at;
+      s_has_weather = true;
+    }
+  }
+}
+
+static void prv_save_weather_cache(void) {
+  if (!s_has_weather || s_weather_updated_at == 0) {
+    return;
+  }
+
+  WeatherCache cache = {
+    .temperature_c = s_weather_temp_c,
+    .uv = s_weather_uv,
+    .updated_at = s_weather_updated_at,
+  };
+  persist_write_data(WEATHER_CACHE_KEY, &cache, sizeof(cache));
+}
+
+static bool prv_weather_should_update(void) {
+  if (!s_has_weather || s_weather_updated_at == 0) {
+    return true;
+  }
+
+  time_t now = time(NULL);
+  if (now <= 0 || (uint32_t)now < s_weather_updated_at) {
+    return false;
+  }
+
+  return (uint32_t)now - s_weather_updated_at >= WEATHER_MIN_UPDATE_SECONDS;
+}
+
 static void prv_request_weather(void) {
   DictionaryIterator *iter;
   AppMessageResult result = app_message_outbox_begin(&iter);
@@ -183,6 +233,12 @@ static void prv_request_weather(void) {
   }
   dict_write_uint8(iter, MESSAGE_KEY_RequestWeather, 1);
   app_message_outbox_send();
+}
+
+static void prv_request_weather_if_stale(void) {
+  if (prv_weather_should_update()) {
+    prv_request_weather();
+  }
 }
 
 static void prv_clear_logo_to_background(void) {
@@ -319,11 +375,7 @@ static void prv_format_complication(int32_t type, char *buffer, size_t buffer_si
   if (type == ComplicationTemperature) {
     prv_format_temperature(buffer, buffer_size);
   } else if (type == ComplicationBattery) {
-    if (s_battery_charging) {
-      snprintf(buffer, buffer_size, "Chg %d%%", s_battery_percent);
-    } else {
-      snprintf(buffer, buffer_size, "%d%%", s_battery_percent);
-    }
+    snprintf(buffer, buffer_size, "%d%%", s_battery_percent);
   } else if (type == ComplicationUV && s_has_weather) {
     snprintf(buffer, buffer_size, "UV%ld", (long)s_weather_uv);
   }
@@ -629,7 +681,7 @@ static GPoint prv_edge_point_for_degrees(GRect bounds, int32_t degrees) {
   int16_t center_x = bounds.size.w / 2;
   int16_t center_y = bounds.size.h / 2;
   int16_t radius = (bounds.size.w < bounds.size.h ? bounds.size.w : bounds.size.h) / 2 -
-                   ROTATED_COMPLICATION_BITMAP_HEIGHT / 2;
+                   ROTATED_COMPLICATION_EDGE_INSET;
 
   if (degrees == 295) {
     return GPoint(center_x + radius * 423 / 1000, center_y + radius * 906 / 1000);
@@ -791,7 +843,7 @@ static void prv_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   s_skip_first_minute_tick = false;
 
   if (tick_time->tm_min % WEATHER_REFRESH_MINUTES == 0) {
-    prv_request_weather();
+    prv_request_weather_if_stale();
   }
 }
 
@@ -829,6 +881,7 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   bool changed_settings = false;
   bool changed_temperature = false;
   bool changed_uv = false;
+  bool received_weather = false;
   bool had_weather = s_has_weather;
   int32_t value;
 
@@ -837,6 +890,7 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
     changed_temperature = !had_weather || s_weather_temp_c != value;
     s_weather_temp_c = value;
     s_has_weather = true;
+    received_weather = true;
   }
 
   Tuple *weather_uv_t = dict_find(iter, MESSAGE_KEY_WeatherUV);
@@ -844,6 +898,12 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
     changed_uv = !had_weather || s_weather_uv != value;
     s_has_weather = true;
     s_weather_uv = value;
+    received_weather = true;
+  }
+
+  if (received_weather) {
+    s_weather_updated_at = (uint32_t)time(NULL);
+    prv_save_weather_cache();
   }
 
   Tuple *bg_t = dict_find(iter, MESSAGE_KEY_BackgroundColor);
@@ -1011,7 +1071,6 @@ static void prv_main_window_unload(Window *window) {
     s_refresh_timer = NULL;
   }
   prv_clear_double_tap_state();
-  prv_destroy_rotated_complication_bitmaps();
 
   layer_destroy(s_rotated_complication_layer);
   layer_destroy(s_bluetooth_layer);
@@ -1031,6 +1090,7 @@ static void prv_main_window_unload(Window *window) {
 
 static void prv_init(void) {
   prv_load_settings();
+  prv_load_weather_cache();
 
   s_window = window_create();
   window_set_background_color(s_window, s_settings.background_color);
@@ -1058,7 +1118,7 @@ static void prv_init(void) {
   app_message_open(512, 128);
 
   s_refresh_timer = app_timer_register(1000, prv_refresh_logo_callback, NULL);
-  prv_request_weather();
+  prv_request_weather_if_stale();
 }
 
 static void prv_deinit(void) {
@@ -1069,6 +1129,7 @@ static void prv_deinit(void) {
   tick_timer_service_unsubscribe();
   app_message_deregister_callbacks();
   window_destroy(s_window);
+  prv_destroy_rotated_complication_bitmaps();
 }
 
 int main(void) {
