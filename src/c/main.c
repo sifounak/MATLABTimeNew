@@ -1,4 +1,5 @@
 #include <pebble.h>
+#include <stdlib.h>
 
 #define SETTINGS_KEY 1
 #define WEATHER_REFRESH_MINUTES 60
@@ -109,6 +110,33 @@ static void prv_default_settings(void) {
 
 static int32_t prv_clamp_i32(int32_t value, int32_t min, int32_t max, int32_t fallback) {
   return (value < min || value > max) ? fallback : value;
+}
+
+static bool prv_tuple_get_i32(Tuple *tuple, int32_t *value) {
+  if (!tuple || !value) {
+    return false;
+  }
+
+  if (tuple->type == TUPLE_INT) {
+    *value = tuple->value->int32;
+    return true;
+  }
+
+  if (tuple->type == TUPLE_UINT) {
+    *value = (int32_t)tuple->value->uint32;
+    return true;
+  }
+
+  if (tuple->type == TUPLE_CSTRING) {
+    char *end = NULL;
+    long parsed = strtol(tuple->value->cstring, &end, 0);
+    if (end && end != tuple->value->cstring && *end == '\0') {
+      *value = (int32_t)parsed;
+      return true;
+    }
+  }
+
+  return false;
 }
 
 static void prv_normalize_settings(void) {
@@ -500,84 +528,85 @@ static void prv_unobstructed_change(AnimationProgress progress, void *context) {
 static void prv_inbox_received(DictionaryIterator *iter, void *context) {
   bool changed_settings = false;
   bool changed_weather = false;
+  int32_t value;
 
   Tuple *weather_temp_t = dict_find(iter, MESSAGE_KEY_WeatherTemperatureC);
-  if (weather_temp_t) {
-    s_weather_temp_c = weather_temp_t->value->int32;
+  if (prv_tuple_get_i32(weather_temp_t, &value)) {
+    s_weather_temp_c = value;
     s_has_weather = true;
     changed_weather = true;
   }
 
   Tuple *weather_uv_t = dict_find(iter, MESSAGE_KEY_WeatherUV);
-  if (weather_uv_t) {
-    s_weather_uv = weather_uv_t->value->int32;
+  if (prv_tuple_get_i32(weather_uv_t, &value)) {
+    s_weather_uv = value;
     s_has_weather = true;
     changed_weather = true;
   }
 
   Tuple *bg_t = dict_find(iter, MESSAGE_KEY_BackgroundColor);
-  if (bg_t) {
-    s_settings.background_color = GColorFromHEX(bg_t->value->int32);
+  if (prv_tuple_get_i32(bg_t, &value)) {
+    s_settings.background_color = GColorFromHEX(value);
     changed_settings = true;
   }
 
   Tuple *text_t = dict_find(iter, MESSAGE_KEY_TextColor);
-  if (text_t) {
-    s_settings.text_color = GColorFromHEX(text_t->value->int32);
+  if (prv_tuple_get_i32(text_t, &value)) {
+    s_settings.text_color = GColorFromHEX(value);
     changed_settings = true;
   }
 
   Tuple *temp_unit_t = dict_find(iter, MESSAGE_KEY_TemperatureUnit);
-  if (temp_unit_t) {
-    s_settings.temperature_unit = prv_clamp_i32(temp_unit_t->value->int32, 0, 2, TemperatureFahrenheit);
+  if (prv_tuple_get_i32(temp_unit_t, &value)) {
+    s_settings.temperature_unit = prv_clamp_i32(value, 0, 2, TemperatureFahrenheit);
     changed_settings = true;
   }
 
   Tuple *date_t = dict_find(iter, MESSAGE_KEY_DateFormat);
-  if (date_t) {
-    s_settings.date_format = prv_clamp_i32(date_t->value->int32, 0, 2, DateFormatWords);
+  if (prv_tuple_get_i32(date_t, &value)) {
+    s_settings.date_format = prv_clamp_i32(value, 0, 2, DateFormatWords);
     changed_settings = true;
   }
 
   Tuple *hour_t = dict_find(iter, MESSAGE_KEY_HourFormat);
-  if (hour_t) {
-    s_settings.use_24_hour = hour_t->value->int32 == 1;
+  if (prv_tuple_get_i32(hour_t, &value)) {
+    s_settings.use_24_hour = value == 1;
     changed_settings = true;
   }
 
   Tuple *left_t = dict_find(iter, MESSAGE_KEY_ComplicationLeft);
-  if (left_t) {
-    s_settings.complication_left = prv_clamp_i32(left_t->value->int32, 0, 3, ComplicationUV);
+  if (prv_tuple_get_i32(left_t, &value)) {
+    s_settings.complication_left = prv_clamp_i32(value, 0, 3, ComplicationUV);
     changed_settings = true;
   }
 
   Tuple *middle_t = dict_find(iter, MESSAGE_KEY_ComplicationMiddle);
-  if (middle_t) {
-    s_settings.complication_middle = prv_clamp_i32(middle_t->value->int32, 0, 3, ComplicationBattery);
+  if (prv_tuple_get_i32(middle_t, &value)) {
+    s_settings.complication_middle = prv_clamp_i32(value, 0, 3, ComplicationBattery);
     changed_settings = true;
   }
 
   Tuple *right_t = dict_find(iter, MESSAGE_KEY_ComplicationRight);
-  if (right_t) {
-    s_settings.complication_right = prv_clamp_i32(right_t->value->int32, 0, 3, ComplicationTemperature);
+  if (prv_tuple_get_i32(right_t, &value)) {
+    s_settings.complication_right = prv_clamp_i32(value, 0, 3, ComplicationTemperature);
     changed_settings = true;
   }
 
   Tuple *disconnect_t = dict_find(iter, MESSAGE_KEY_VibeOnDisconnect);
-  if (disconnect_t) {
-    s_settings.vibe_on_disconnect = disconnect_t->value->int32 == 1;
+  if (prv_tuple_get_i32(disconnect_t, &value)) {
+    s_settings.vibe_on_disconnect = value == 1;
     changed_settings = true;
   }
 
   Tuple *connect_t = dict_find(iter, MESSAGE_KEY_VibeOnConnect);
-  if (connect_t) {
-    s_settings.vibe_on_connect = connect_t->value->int32 == 1;
+  if (prv_tuple_get_i32(connect_t, &value)) {
+    s_settings.vibe_on_connect = value == 1;
     changed_settings = true;
   }
 
   Tuple *logo_t = dict_find(iter, MESSAGE_KEY_LogoRotationTrigger);
-  if (logo_t) {
-    s_settings.logo_rotation_trigger = prv_clamp_i32(logo_t->value->int32, 0, 4, LogoRotationTriggerOff);
+  if (prv_tuple_get_i32(logo_t, &value)) {
+    s_settings.logo_rotation_trigger = prv_clamp_i32(value, 0, 4, LogoRotationTriggerOff);
     prv_apply_logo_trigger();
     changed_settings = true;
   }
