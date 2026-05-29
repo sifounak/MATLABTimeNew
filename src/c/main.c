@@ -280,7 +280,6 @@ static void prv_set_touch_subscription(bool enabled) {
 }
 
 static void prv_apply_logo_trigger(void) {
-  s_skip_first_minute_tick = true;
   prv_set_accel_tap_subscription(s_settings.logo_rotation_trigger == LogoRotationTriggerShake);
   prv_set_touch_subscription(s_settings.logo_rotation_trigger == LogoRotationTriggerDoubleTap);
 }
@@ -729,6 +728,7 @@ static void prv_init(void) {
   s_connected = connection_service_peek_pebble_app_connection();
   prv_connection_handler(s_connected);
   prv_apply_logo_trigger();
+  s_skip_first_minute_tick = true;
 
   tick_timer_service_subscribe(MINUTE_UNIT, prv_tick_handler);
   battery_state_service_subscribe(prv_battery_handler);

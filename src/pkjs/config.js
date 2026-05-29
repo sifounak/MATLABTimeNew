@@ -41,22 +41,22 @@ module.exports = [
         "type": "select",
         "messageKey": "DateFormat",
         "label": "Date Format",
-        "defaultValue": "0",
+        "defaultValue": "words",
         "options": [
-          { "label": "eee MMM d", "value": "0" },
-          { "label": "MM/dd/yyyy", "value": "1" },
-          { "label": "dd/MM/yyyy", "value": "2" }
+          { "label": "eee MMM d", "value": "words" },
+          { "label": "MM/dd/yyyy", "value": "mdy" },
+          { "label": "dd/MM/yyyy", "value": "dmy" }
         ]
       },
       {
         "type": "select",
         "messageKey": "TemperatureUnit",
         "label": "Temperature",
-        "defaultValue": "1",
+        "defaultValue": "F",
         "options": [
-          { "label": "Celsius", "value": "0" },
-          { "label": "Fahrenheit", "value": "1" },
-          { "label": "Kelvin", "value": "2" }
+          { "label": "Celsius", "value": "C" },
+          { "label": "Fahrenheit", "value": "F" },
+          { "label": "Kelvin", "value": "K" }
         ]
       }
     ]
@@ -72,36 +72,36 @@ module.exports = [
         "type": "select",
         "messageKey": "ComplicationLeft",
         "label": "Left Slot",
-        "defaultValue": "3",
+        "defaultValue": "uv",
         "options": [
-          { "label": "--Empty--", "value": "0" },
-          { "label": "Battery", "value": "2" },
-          { "label": "Temperature", "value": "1" },
-          { "label": "UV Index", "value": "3" }
+          { "label": "--Empty--", "value": "empty" },
+          { "label": "Battery", "value": "battery" },
+          { "label": "Temperature", "value": "temperature" },
+          { "label": "UV Index", "value": "uv" }
         ]
       },
       {
         "type": "select",
         "messageKey": "ComplicationMiddle",
         "label": "Middle Slot",
-        "defaultValue": "2",
+        "defaultValue": "battery",
         "options": [
-          { "label": "--Empty--", "value": "0" },
-          { "label": "Battery", "value": "2" },
-          { "label": "Temperature", "value": "1" },
-          { "label": "UV Index", "value": "3" }
+          { "label": "--Empty--", "value": "empty" },
+          { "label": "Battery", "value": "battery" },
+          { "label": "Temperature", "value": "temperature" },
+          { "label": "UV Index", "value": "uv" }
         ]
       },
       {
         "type": "select",
         "messageKey": "ComplicationRight",
         "label": "Right Slot",
-        "defaultValue": "1",
+        "defaultValue": "temperature",
         "options": [
-          { "label": "--Empty--", "value": "0" },
-          { "label": "Battery", "value": "2" },
-          { "label": "Temperature", "value": "1" },
-          { "label": "UV Index", "value": "3" }
+          { "label": "--Empty--", "value": "empty" },
+          { "label": "Battery", "value": "battery" },
+          { "label": "Temperature", "value": "temperature" },
+          { "label": "UV Index", "value": "uv" }
         ]
       }
     ]
@@ -117,13 +117,13 @@ module.exports = [
         "type": "select",
         "messageKey": "LogoRotationTrigger",
         "label": "Trigger:",
-        "defaultValue": "0",
+        "defaultValue": "off",
         "options": [
-          { "label": "Off", "value": "0" },
-          { "label": "Double tap", "value": "1" },
-          { "label": "Shake", "value": "2" },
-          { "label": "Minute", "value": "3" },
-          { "label": "Hour", "value": "4" }
+          { "label": "Off", "value": "off" },
+          { "label": "Double tap", "value": "doubleTap" },
+          { "label": "Shake", "value": "shake" },
+          { "label": "Minute", "value": "minute" },
+          { "label": "Hour", "value": "hour" }
         ]
       }
     ]
