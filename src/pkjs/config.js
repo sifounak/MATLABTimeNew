@@ -103,13 +103,6 @@ module.exports = [
         "defaultValue": "Complications"
       },
       {
-        "type": "toggle",
-        "messageKey": "RotateSideText",
-        "label": "Curved Complication Layout",
-        "defaultValue": true,
-        "description": "(Gabbro only) Angle complication text to match curvature of round displays. Turn this off for better battery efficiency."
-      },
-      {
         "type": "select",
         "messageKey": "ComplicationLeft",
         "label": "Left Slot",
@@ -144,6 +137,13 @@ module.exports = [
           { "label": "Temperature", "value": "temperature" },
           { "label": "UV Index", "value": "uv" }
         ]
+      },
+      {
+        "type": "toggle",
+        "messageKey": "RotateSideText",
+        "label": "Curved Layout (Gabbro)",
+        "defaultValue": true,
+        "description": "Angle complication text to match curvature of round displays. Turn this off for better battery efficiency."
       }
     ]
   },
