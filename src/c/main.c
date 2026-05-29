@@ -377,7 +377,7 @@ static void prv_layout_layers(void) {
   int16_t date_text_layer_offset = is_round ? 2 : 1;
   int16_t complication_text_layer_offset = is_round ? 1 : 0;
   int16_t time_y = height / 2 - time_layout_height / 4 + (!is_round ? 12 : 0);
-  int16_t date_y = time_y + (time_layout_height * 86 / 100) + 6;
+  int16_t date_y = time_y + (time_layout_height * 86 / 100) + 8;
   int16_t complication_y = (!is_round ? height - small_font_height - 5 : height - small_font_height - 10) - 3;
 
   layer_set_frame(text_layer_get_layer(s_time_layer), GRect(0, time_y + time_text_layer_offset, width, time_layout_height + 8));
