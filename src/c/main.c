@@ -98,11 +98,13 @@ static TextLayer *s_date_layer;
 static TextLayer *s_left_layer;
 static TextLayer *s_middle_layer;
 static TextLayer *s_right_layer;
-static Layer *s_bluetooth_layer;
+static TextLayer *s_bluetooth_text_layer;
+static BitmapLayer *s_bluetooth_image_layer;
 static Layer *s_rotated_complication_layer;
 
 static GBitmapSequence *s_logo_sequence;
 static GBitmap *s_logo_bitmap;
+static GBitmap *s_bluetooth_bitmap;
 static GBitmap *s_rotated_left_bitmap;
 static GBitmap *s_rotated_right_bitmap;
 static bool s_logo_animating;
@@ -766,24 +768,13 @@ static void prv_update_now(void) {
   prv_update_time_and_date(tick_time);
 }
 
-static void prv_bluetooth_update_proc(Layer *layer, GContext *ctx) {
-  if (s_connected) {
-    return;
+static void prv_set_bluetooth_indicator_hidden(bool hidden) {
+  if (s_bluetooth_text_layer) {
+    layer_set_hidden(text_layer_get_layer(s_bluetooth_text_layer), hidden);
   }
-
-  GRect bounds = layer_get_bounds(layer);
-  int16_t mid_x = bounds.size.w / 2;
-  int16_t mid_y = bounds.size.h / 2;
-  int16_t length = 8;
-  int16_t thickness = 3;
-
-  graphics_context_set_stroke_color(ctx, GColorRed);
-  graphics_context_set_stroke_width(ctx, thickness);
-  graphics_draw_line(ctx, GPoint(mid_x, mid_y - 2 * length), GPoint(mid_x, mid_y + 2 * length));
-  graphics_draw_line(ctx, GPoint(mid_x - length, mid_y - length), GPoint(mid_x + length, mid_y + length));
-  graphics_draw_line(ctx, GPoint(mid_x - length, mid_y + length), GPoint(mid_x + length, mid_y - length));
-  graphics_draw_line(ctx, GPoint(mid_x, mid_y - 2 * length), GPoint(mid_x + length, mid_y - length));
-  graphics_draw_line(ctx, GPoint(mid_x, mid_y + 2 * length), GPoint(mid_x + length, mid_y + length));
+  if (s_bluetooth_image_layer) {
+    layer_set_hidden(bitmap_layer_get_layer(s_bluetooth_image_layer), hidden);
+  }
 }
 
 static GPoint prv_edge_point_for_degrees(GRect bounds, int32_t degrees) {
@@ -833,11 +824,13 @@ static void prv_apply_colors(void) {
   text_layer_set_text_color(s_left_layer, s_settings.text_color);
   text_layer_set_text_color(s_middle_layer, s_settings.text_color);
   text_layer_set_text_color(s_right_layer, s_settings.text_color);
+  if (s_bluetooth_text_layer) {
+    text_layer_set_text_color(s_bluetooth_text_layer, s_settings.text_color);
+  }
   bitmap_layer_set_background_color(s_logo_layer, s_settings.background_color);
   prv_load_first_logo_frame();
   s_rotated_left_buffer[0] = '\0';
   s_rotated_right_buffer[0] = '\0';
-  layer_mark_dirty(s_bluetooth_layer);
 }
 
 static void prv_layout_layers(void) {
@@ -931,10 +924,24 @@ static void prv_layout_layers(void) {
     int16_t logo_x = (width - logo_size.w) / 2;
     int16_t logo_y = is_basalt ? 2 : ((time_y - logo_size.h) / 2) + 5 + (!is_round ? 5 : 0);
     layer_set_frame(bitmap_layer_get_layer(s_logo_layer), GRect(logo_x, logo_y, logo_size.w, logo_size.h));
+
+    if (is_basalt && s_bluetooth_text_layer) {
+      layer_set_frame(text_layer_get_layer(s_bluetooth_text_layer),
+                      GRect(0, 0, width, small_font_height + 4));
+    } else if (s_bluetooth_image_layer && s_bluetooth_bitmap) {
+      GRect bluetooth_bounds = gbitmap_get_bounds(s_bluetooth_bitmap);
+      int16_t bluetooth_x = (logo_x - bluetooth_bounds.size.w) / 2;
+      int16_t bluetooth_y = logo_y + (logo_size.h - bluetooth_bounds.size.h) / 2;
+
+      if (bluetooth_x < 0) {
+        bluetooth_x = 0;
+      }
+      layer_set_frame(bitmap_layer_get_layer(s_bluetooth_image_layer),
+                      GRect(bluetooth_x, bluetooth_y, bluetooth_bounds.size.w,
+                            bluetooth_bounds.size.h));
+    }
   }
 
-  layer_set_frame(s_bluetooth_layer, is_basalt ? GRect(width - 42, 0, 40, 40) :
-                  GRect(width * 82 / 100 - 20, time_y - 30, 40, 40));
   layer_set_frame(s_rotated_complication_layer, GRect(0, 0, width, height));
 }
 
@@ -977,7 +984,7 @@ static void prv_connection_handler(bool connected) {
   bool was_connected = s_connected;
   s_connected = connected;
 
-  layer_mark_dirty(s_bluetooth_layer);
+  prv_set_bluetooth_indicator_hidden(s_connected);
   if (s_connection_initialized) {
     if (!s_connected && was_connected && s_settings.vibe_on_disconnect) {
       vibes_long_pulse();
@@ -1149,6 +1156,22 @@ static void prv_main_window_load(Window *window) {
   bitmap_layer_set_compositing_mode(s_logo_layer, GCompOpSet);
   bitmap_layer_set_background_color(s_logo_layer, s_settings.background_color);
 
+#if defined(PBL_PLATFORM_BASALT)
+  s_bluetooth_text_layer = text_layer_create(GRectZero);
+  text_layer_set_background_color(s_bluetooth_text_layer, GColorClear);
+  text_layer_set_text_color(s_bluetooth_text_layer, s_settings.text_color);
+  text_layer_set_font(s_bluetooth_text_layer, s_small_font);
+  text_layer_set_text_alignment(s_bluetooth_text_layer, GTextAlignmentLeft);
+  text_layer_set_overflow_mode(s_bluetooth_text_layer, GTextOverflowModeTrailingEllipsis);
+  text_layer_set_text(s_bluetooth_text_layer, "BT OFF!");
+#else
+  s_bluetooth_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BLUETOOTH);
+  s_bluetooth_image_layer = bitmap_layer_create(GRectZero);
+  bitmap_layer_set_bitmap(s_bluetooth_image_layer, s_bluetooth_bitmap);
+  bitmap_layer_set_compositing_mode(s_bluetooth_image_layer, GCompOpSet);
+#endif
+  prv_set_bluetooth_indicator_hidden(true);
+
   s_time_layer = text_layer_create(GRectZero);
   s_date_layer = text_layer_create(GRectZero);
   s_left_layer = text_layer_create(GRectZero);
@@ -1174,8 +1197,6 @@ static void prv_main_window_load(Window *window) {
   text_layer_set_text_alignment(s_middle_layer, GTextAlignmentCenter);
   text_layer_set_text_alignment(s_right_layer, GTextAlignmentRight);
 
-  s_bluetooth_layer = layer_create(GRectZero);
-  layer_set_update_proc(s_bluetooth_layer, prv_bluetooth_update_proc);
   s_rotated_complication_layer = layer_create(GRectZero);
   layer_set_update_proc(s_rotated_complication_layer, prv_rotated_complication_update_proc);
 
@@ -1185,7 +1206,12 @@ static void prv_main_window_load(Window *window) {
   layer_add_child(s_window_layer, text_layer_get_layer(s_left_layer));
   layer_add_child(s_window_layer, text_layer_get_layer(s_middle_layer));
   layer_add_child(s_window_layer, text_layer_get_layer(s_right_layer));
-  layer_add_child(s_window_layer, s_bluetooth_layer);
+  if (s_bluetooth_text_layer) {
+    layer_add_child(s_window_layer, text_layer_get_layer(s_bluetooth_text_layer));
+  }
+  if (s_bluetooth_image_layer) {
+    layer_add_child(s_window_layer, bitmap_layer_get_layer(s_bluetooth_image_layer));
+  }
   layer_add_child(s_window_layer, s_rotated_complication_layer);
 
   prv_layout_layers();
@@ -1209,13 +1235,24 @@ static void prv_main_window_unload(Window *window) {
   prv_clear_double_tap_state();
 
   layer_destroy(s_rotated_complication_layer);
-  layer_destroy(s_bluetooth_layer);
+  if (s_bluetooth_image_layer) {
+    bitmap_layer_destroy(s_bluetooth_image_layer);
+    s_bluetooth_image_layer = NULL;
+  }
+  if (s_bluetooth_text_layer) {
+    text_layer_destroy(s_bluetooth_text_layer);
+    s_bluetooth_text_layer = NULL;
+  }
   text_layer_destroy(s_right_layer);
   text_layer_destroy(s_middle_layer);
   text_layer_destroy(s_left_layer);
   text_layer_destroy(s_date_layer);
   text_layer_destroy(s_time_layer);
   bitmap_layer_destroy(s_logo_layer);
+  if (s_bluetooth_bitmap) {
+    gbitmap_destroy(s_bluetooth_bitmap);
+    s_bluetooth_bitmap = NULL;
+  }
   gbitmap_destroy(s_logo_bitmap);
   gbitmap_sequence_destroy(s_logo_sequence);
 

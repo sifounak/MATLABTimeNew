@@ -37,9 +37,18 @@
         "resources": {
             "media": [
                 {
-                    "file": "data/Logo_Animation.png",
+                    "file": "images/MATLAB_Logo_Animation.png",
                     "name": "LOGO_ANIMATION",
                     "type": "raw"
+                },
+                {
+                    "file": "images/bluetooth.png",
+                    "name": "IMAGE_BLUETOOTH",
+                    "targetPlatforms": [
+                        "emery",
+                        "gabbro"
+                    ],
+                    "type": "bitmap"
                 },
                 {
                     "compatibility": "2.7",
