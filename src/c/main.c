@@ -141,6 +141,15 @@ static bool prv_is_round(void) {
   return bounds.size.w == bounds.size.h;
 }
 
+static bool prv_is_basalt(void) {
+#if defined(PBL_PLATFORM_BASALT)
+  return true;
+#else
+  GRect bounds = layer_get_bounds(s_window_layer);
+  return bounds.size.w == 144 && bounds.size.h == 168;
+#endif
+}
+
 static bool prv_should_rotate_side_complications(void) {
   return s_settings.rotate_side_text && prv_is_round();
 }
@@ -425,6 +434,15 @@ static void prv_format_temperature(char *buffer, size_t buffer_size) {
     return;
   }
 
+#if defined(PBL_PLATFORM_BASALT)
+  if (s_settings.temperature_unit == TemperatureCelsius) {
+    snprintf(buffer, buffer_size, "%ldC", (long)s_weather_temp_c);
+  } else if (s_settings.temperature_unit == TemperatureKelvin) {
+    snprintf(buffer, buffer_size, "%ldK", (long)(s_weather_temp_c + 273));
+  } else {
+    snprintf(buffer, buffer_size, "%ldF", (long)((s_weather_temp_c * 9 / 5) + 32));
+  }
+#else
   if (s_settings.temperature_unit == TemperatureCelsius) {
     snprintf(buffer, buffer_size, "%ld" DEGREE_SYMBOL "C", (long)s_weather_temp_c);
   } else if (s_settings.temperature_unit == TemperatureKelvin) {
@@ -432,6 +450,7 @@ static void prv_format_temperature(char *buffer, size_t buffer_size) {
   } else {
     snprintf(buffer, buffer_size, "%ld" DEGREE_SYMBOL "F", (long)((s_weather_temp_c * 9 / 5) + 32));
   }
+#endif
 }
 
 static void prv_format_complication(int32_t type, char *buffer, size_t buffer_size) {
@@ -824,18 +843,20 @@ static void prv_apply_colors(void) {
 static void prv_layout_layers(void) {
   GRect bounds = layer_get_unobstructed_bounds(s_window_layer);
   bool is_round = prv_is_round();
+  bool is_basalt = prv_is_basalt();
   bool rotate_side_text = is_round && s_settings.rotate_side_text;
   int16_t width = bounds.size.w;
   int16_t height = bounds.size.h;
-  int16_t time_layout_height = is_round ? 48 : 40;
-  int16_t date_font_height = is_round ? 26 : 22;
-  int16_t small_font_height = 16;
-  int16_t time_text_layer_offset = is_round ? -5 : -4;
-  int16_t date_text_layer_offset = is_round ? 2 : 1;
-  int16_t complication_text_layer_offset = is_round ? 1 : 0;
-  int16_t time_y = height / 2 - time_layout_height / 4 + (!is_round ? 12 : 0);
-  int16_t date_y = time_y + (time_layout_height * 86 / 100) + 8;
-  int16_t complication_y = (!is_round ? height - small_font_height - 5 : height - small_font_height - 10) - 3;
+  int16_t time_layout_height = is_basalt ? 34 : (is_round ? 48 : 40);
+  int16_t date_font_height = is_basalt ? 22 : (is_round ? 26 : 22);
+  int16_t small_font_height = is_basalt ? 14 : 16;
+  int16_t time_text_layer_offset = is_basalt ? 0 : (is_round ? -5 : -4);
+  int16_t date_text_layer_offset = is_basalt ? 0 : (is_round ? 2 : 1);
+  int16_t complication_text_layer_offset = is_basalt ? 0 : (is_round ? 1 : 0);
+  int16_t time_y = is_basalt ? 90 : height / 2 - time_layout_height / 4 + (!is_round ? 12 : 0);
+  int16_t date_y = is_basalt ? 126 : time_y + (time_layout_height * 86 / 100) + 8;
+  int16_t complication_y = is_basalt ? 150 :
+      ((!is_round ? height - small_font_height - 5 : height - small_font_height - 10) - 3);
 
   layer_set_frame(text_layer_get_layer(s_time_layer), GRect(0, time_y + time_text_layer_offset, width, time_layout_height + 8));
   layer_set_frame(text_layer_get_layer(s_date_layer), GRect(0, date_y + date_text_layer_offset, width, date_font_height + 6));
@@ -849,9 +870,11 @@ static void prv_layout_layers(void) {
     text_layer_set_text_alignment(s_middle_layer, GTextAlignmentCenter);
     text_layer_set_text_alignment(s_right_layer, GTextAlignmentRight);
 
-    layer_set_frame(text_layer_get_layer(s_left_layer), GRect(15, complication_y + complication_text_layer_offset, width / 3, small_font_height + 4));
-    layer_set_frame(text_layer_get_layer(s_middle_layer), GRect(width / 3, complication_y + complication_text_layer_offset, width / 3, small_font_height + 4));
-    layer_set_frame(text_layer_get_layer(s_right_layer), GRect(width - 15 - width / 3, complication_y + complication_text_layer_offset, width / 3, small_font_height + 4));
+    int16_t side_inset = is_basalt ? 4 : 15;
+    int16_t column_width = is_basalt ? (width - side_inset * 2) / 3 : width / 3;
+    layer_set_frame(text_layer_get_layer(s_left_layer), GRect(side_inset, complication_y + complication_text_layer_offset, column_width, small_font_height + 4));
+    layer_set_frame(text_layer_get_layer(s_middle_layer), GRect((width - column_width) / 2, complication_y + complication_text_layer_offset, column_width, small_font_height + 4));
+    layer_set_frame(text_layer_get_layer(s_right_layer), GRect(width - side_inset - column_width, complication_y + complication_text_layer_offset, column_width, small_font_height + 4));
   } else {
     layer_set_hidden(text_layer_get_layer(s_left_layer), rotate_side_text);
     layer_set_hidden(text_layer_get_layer(s_right_layer), rotate_side_text);
@@ -906,11 +929,12 @@ static void prv_layout_layers(void) {
   if (s_logo_sequence) {
     GSize logo_size = gbitmap_sequence_get_bitmap_size(s_logo_sequence);
     int16_t logo_x = (width - logo_size.w) / 2;
-    int16_t logo_y = ((time_y - logo_size.h) / 2) + 5 + (!is_round ? 5 : 0);
+    int16_t logo_y = is_basalt ? 2 : ((time_y - logo_size.h) / 2) + 5 + (!is_round ? 5 : 0);
     layer_set_frame(bitmap_layer_get_layer(s_logo_layer), GRect(logo_x, logo_y, logo_size.w, logo_size.h));
   }
 
-  layer_set_frame(s_bluetooth_layer, GRect(width * 82 / 100 - 20, time_y - 30, 40, 40));
+  layer_set_frame(s_bluetooth_layer, is_basalt ? GRect(width - 42, 0, 40, 40) :
+                  GRect(width * 82 / 100 - 20, time_y - 30, 40, 40));
   layer_set_frame(s_rotated_complication_layer, GRect(0, 0, width, height));
 }
 
@@ -1104,11 +1128,20 @@ static void prv_outbox_failed(DictionaryIterator *iter, AppMessageResult reason,
 
 static void prv_main_window_load(Window *window) {
   s_window_layer = window_get_root_layer(window);
-  bool is_round = prv_is_round();
 
-  s_time_font = fonts_load_custom_font(resource_get_handle(is_round ? RESOURCE_ID_FONT_GOOGLE_SANS_48 : RESOURCE_ID_FONT_GOOGLE_SANS_40));
-  s_date_font = fonts_load_custom_font(resource_get_handle(is_round ? RESOURCE_ID_FONT_GOOGLE_SANS_26 : RESOURCE_ID_FONT_GOOGLE_SANS_22));
+#if defined(PBL_PLATFORM_BASALT)
+  s_time_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_MATLAB_34));
+  s_date_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_MATLAB_22));
+  s_small_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_MATLAB_14));
+#elif defined(PBL_ROUND) || defined(PBL_PLATFORM_GABBRO)
+  s_time_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_GOOGLE_SANS_48));
+  s_date_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_GOOGLE_SANS_26));
   s_small_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_GOOGLE_SANS_16));
+#else
+  s_time_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_GOOGLE_SANS_40));
+  s_date_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_GOOGLE_SANS_22));
+  s_small_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_GOOGLE_SANS_16));
+#endif
 
   s_logo_sequence = gbitmap_sequence_create_with_resource(RESOURCE_ID_LOGO_ANIMATION);
   s_logo_bitmap = gbitmap_create_blank(gbitmap_sequence_get_bitmap_size(s_logo_sequence), GBitmapFormat8Bit);

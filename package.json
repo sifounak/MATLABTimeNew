@@ -45,36 +45,77 @@
                     "compatibility": "2.7",
                     "file": "fonts/GoogleSans-Medium.ttf",
                     "name": "FONT_GOOGLE_SANS_48",
+                    "targetPlatforms": [
+                        "gabbro"
+                    ],
                     "type": "font"
                 },
                 {
                     "compatibility": "2.7",
                     "file": "fonts/GoogleSans-Medium.ttf",
                     "name": "FONT_GOOGLE_SANS_40",
+                    "targetPlatforms": [
+                        "emery"
+                    ],
                     "type": "font"
                 },
                 {
                     "compatibility": "2.7",
                     "file": "fonts/GoogleSans-Medium.ttf",
                     "name": "FONT_GOOGLE_SANS_26",
+                    "targetPlatforms": [
+                        "gabbro"
+                    ],
                     "type": "font"
                 },
                 {
                     "compatibility": "2.7",
                     "file": "fonts/GoogleSans-Medium.ttf",
                     "name": "FONT_GOOGLE_SANS_22",
+                    "targetPlatforms": [
+                        "emery"
+                    ],
                     "type": "font"
                 },
                 {
                     "compatibility": "2.7",
                     "file": "fonts/GoogleSans-Medium.ttf",
                     "name": "FONT_GOOGLE_SANS_16",
+                    "targetPlatforms": [
+                        "emery",
+                        "gabbro"
+                    ],
+                    "type": "font"
+                },
+                {
+                    "file": "fonts/MATLAB.ttf",
+                    "name": "FONT_MATLAB_34",
+                    "targetPlatforms": [
+                        "basalt"
+                    ],
+                    "type": "font"
+                },
+                {
+                    "file": "fonts/MATLAB.ttf",
+                    "name": "FONT_MATLAB_22",
+                    "targetPlatforms": [
+                        "basalt"
+                    ],
+                    "type": "font"
+                },
+                {
+                    "file": "fonts/MATLAB.ttf",
+                    "name": "FONT_MATLAB_14",
+                    "targetPlatforms": [
+                        "basalt"
+                    ],
                     "type": "font"
                 }
             ]
         },
         "sdkVersion": "3",
         "targetPlatforms": [
+            "basalt",
             "emery",
             "gabbro"
         ],
