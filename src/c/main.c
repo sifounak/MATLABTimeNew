@@ -11,6 +11,7 @@
 #define ROTATED_COMPLICATION_BITMAP_HEIGHT 18
 #define ROTATED_COMPLICATION_EDGE_INSET 16
 #define ROTATED_COMPLICATION_GLYPH_SPACING 1
+#define DEBUG_SHOW_BLUETOOTH_INDICATOR 1
 
 typedef enum {
   ComplicationEmpty = 0,
@@ -769,6 +770,9 @@ static void prv_update_now(void) {
 }
 
 static void prv_set_bluetooth_indicator_hidden(bool hidden) {
+#if DEBUG_SHOW_BLUETOOTH_INDICATOR
+  hidden = false;
+#endif
   if (s_bluetooth_text_layer) {
     layer_set_hidden(text_layer_get_layer(s_bluetooth_text_layer), hidden);
   }
@@ -927,7 +931,7 @@ static void prv_layout_layers(void) {
 
     if (is_basalt && s_bluetooth_text_layer) {
       layer_set_frame(text_layer_get_layer(s_bluetooth_text_layer),
-                      GRect(0, 0, width, small_font_height + 4));
+                      GRect(4, 0, width - 4, small_font_height + 4));
     } else if (s_bluetooth_image_layer && s_bluetooth_bitmap) {
       GRect bluetooth_bounds = gbitmap_get_bounds(s_bluetooth_bitmap);
       int16_t bluetooth_x = (logo_x - bluetooth_bounds.size.w) / 2;
