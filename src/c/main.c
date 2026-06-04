@@ -948,6 +948,9 @@ static void prv_layout_layers(void) {
     GSize logo_size = gbitmap_sequence_get_bitmap_size(s_logo_sequence);
     int16_t logo_x = (width - logo_size.w) / 2;
     int16_t logo_y = is_basalt ? 2 : ((time_y - logo_size.h) / 2) + 5 + (!is_round ? 5 : 0);
+#if defined(PBL_PLATFORM_EMERY)
+    logo_y -= 10;
+#endif
     layer_set_frame(bitmap_layer_get_layer(s_logo_layer), GRect(logo_x, logo_y, logo_size.w, logo_size.h));
 
     if (is_basalt && s_bluetooth_text_layer) {
