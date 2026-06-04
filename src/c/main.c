@@ -962,6 +962,10 @@ static void prv_layout_layers(void) {
       int16_t bluetooth_x = (logo_x - bluetooth_bounds.size.w) / 2;
       int16_t bluetooth_y = logo_y + (logo_size.h - bluetooth_bounds.size.h) / 2;
 
+#if defined(PBL_PLATFORM_GABBRO)
+      bluetooth_x += 10;
+#endif
+
       if (bluetooth_x < 0) {
         bluetooth_x = 0;
       }
@@ -973,12 +977,13 @@ static void prv_layout_layers(void) {
         GRect charging_bounds = gbitmap_get_bounds(s_charging_bitmap);
         int16_t logo_right = logo_x + logo_size.w;
         int16_t charging_x = (logo_right + width - charging_bounds.size.w) / 2;
-        int16_t charging_y = logo_y + (logo_size.h - charging_bounds.size.h) / 2 - 10;
+        int16_t charging_y = logo_y + (logo_size.h - charging_bounds.size.h) / 2;
 
 #if defined(PBL_PLATFORM_GABBRO)
         charging_x -= 10;
 #elif defined(PBL_PLATFORM_EMERY)
         charging_x -= 5;
+        charging_y -= 10;
 #endif
 
         if (charging_x < logo_right) {
