@@ -1012,10 +1012,11 @@ static void prv_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 }
 
 static void prv_battery_handler(BatteryChargeState state) {
+  bool charger_connected = state.is_plugged;
   bool battery_changed = s_battery_percent != state.charge_percent ||
-                         s_battery_charging != state.is_charging;
+                         s_battery_charging != charger_connected;
   s_battery_percent = state.charge_percent;
-  s_battery_charging = state.is_charging;
+  s_battery_charging = charger_connected;
   prv_set_charging_indicator_hidden(!s_battery_charging);
 
   if (battery_changed) {
