@@ -1,19 +1,20 @@
 {
-    "author": "Adamandios Sifounakis",
+    "author": "Adam Sifounakis",
+    "id": "55f7b14f9020d65236000049",
     "dependencies": {
         "@rebble/clay": "^1.0.8"
     },
     "keywords": [
         "pebble-app"
     ],
-    "name": "matlab-time-2",
+    "name": "matlab-time",
     "pebble": {
         "capabilities": [
             "location",
             "configurable"
         ],
-        "companyName": "Adamandios Sifounakis",
-        "displayName": "MATLAB Time 2",
+        "companyName": "Adam Sifounakis",
+        "displayName": "MATLAB Time",
         "enableMultiJS": true,
         "messageKeys": [
             "BackgroundColor",
@@ -137,10 +138,10 @@
             "emery",
             "gabbro"
         ],
-        "uuid": "713b5313-1926-4489-bc7a-26c8eff3e677",
+        "uuid": "ff8d24be-9ea2-429f-a51d-b2588e56346d",
         "watchapp": {
             "watchface": true
         }
     },
-    "version": "1.0.0"
+    "version": "2.0.0"
 }

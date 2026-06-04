@@ -11,7 +11,7 @@ fi
 
 origDir=$(pwd)
 scriptDir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-workDir="$HOME/MATLAB_Time_New"
+workDir="$HOME/MATLAB_Time"
 pebble kill
 rm -rf "$workDir"
 cp -r "$scriptDir" "$workDir"
