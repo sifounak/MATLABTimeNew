@@ -51,6 +51,15 @@
                     "type": "bitmap"
                 },
                 {
+                    "file": "images/charging.png",
+                    "name": "IMAGE_CHARGING",
+                    "targetPlatforms": [
+                        "emery",
+                        "gabbro"
+                    ],
+                    "type": "bitmap"
+                },
+                {
                     "compatibility": "2.7",
                     "file": "fonts/GoogleSans-Medium.ttf",
                     "name": "FONT_GOOGLE_SANS_48",
