@@ -6,6 +6,7 @@ var clay = new Clay(clayConfig, customClay, { autoHandleEvents: false });
 
 var WEATHER_MIN_UPDATE_MS = 30 * 60 * 1000;
 var WEATHER_UPDATED_AT_KEY = 'weather-updated-at';
+var weatherRequestInFlight = false;
 
 var INTEGER_SETTING_KEYS = [
   'HourFormat',
@@ -137,6 +138,7 @@ function locationSuccess(pos) {
 
   xhrRequest(url, 'GET', function(error, responseText) {
     if (error) {
+      weatherRequestInFlight = false;
       console.log(error.message);
       return;
     }
@@ -150,29 +152,43 @@ function locationSuccess(pos) {
 
       Pebble.sendAppMessage(dictionary,
         function() {
+          weatherRequestInFlight = false;
           localStorage.setItem(WEATHER_UPDATED_AT_KEY, Date.now().toString());
           console.log('Weather sent to watch');
         },
         function(e) {
+          weatherRequestInFlight = false;
           console.log('Weather send failed: ' + JSON.stringify(e));
         }
       );
     } catch (e) {
+      weatherRequestInFlight = false;
       console.log('Weather parse failed: ' + e.message);
     }
   });
 }
 
 function locationError(err) {
+  weatherRequestInFlight = false;
   console.log('Location request failed: ' + err.code);
 }
 
 function getWeather() {
-  navigator.geolocation.getCurrentPosition(
-    locationSuccess,
-    locationError,
-    { timeout: 15000, maximumAge: 60 * 60 * 1000 }
-  );
+  if (weatherRequestInFlight) {
+    return;
+  }
+
+  weatherRequestInFlight = true;
+  try {
+    navigator.geolocation.getCurrentPosition(
+      locationSuccess,
+      locationError,
+      { timeout: 15000, maximumAge: 60 * 60 * 1000 }
+    );
+  } catch (e) {
+    weatherRequestInFlight = false;
+    console.log('Location request failed: ' + e.message);
+  }
 }
 
 function weatherShouldUpdate() {

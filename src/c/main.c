@@ -111,7 +111,6 @@ static GBitmap *s_charging_bitmap;
 static GBitmap *s_rotated_left_bitmap;
 static GBitmap *s_rotated_right_bitmap;
 static bool s_logo_animating;
-static AppTimer *s_refresh_timer;
 static AppTimer *s_double_tap_timer;
 static bool s_waiting_for_second_tap;
 static bool s_skip_first_minute_tick;
@@ -138,6 +137,8 @@ static char s_middle_buffer[20];
 static char s_right_buffer[20];
 static char s_rotated_left_buffer[20];
 static char s_rotated_right_buffer[20];
+static uint8_t s_rotated_left_color;
+static uint8_t s_rotated_right_color;
 
 static void prv_layout_layers(void);
 
@@ -577,19 +578,18 @@ static int16_t prv_rotated_text_bitmap_width(const char *text) {
   return width;
 }
 
-static void prv_set_rotated_text_pixel(GBitmap *bitmap, int16_t x, int16_t y, uint8_t color) {
-  GRect bounds = gbitmap_get_bounds(bitmap);
+static void prv_set_rotated_text_pixel(uint8_t *data, uint16_t stride, GRect bounds,
+                                       int16_t x, int16_t y, uint8_t color) {
   if (x < 0 || y < 0 || x >= bounds.size.w || y >= bounds.size.h) {
     return;
   }
 
-  uint8_t *data = gbitmap_get_data(bitmap);
-  uint16_t stride = gbitmap_get_bytes_per_row(bitmap);
   data[y * stride + x] = color;
 }
 
-static void prv_draw_rotated_text_glyph(GBitmap *bitmap, const RotatedGlyph *glyph,
-                                        int16_t x, int16_t y, uint8_t color) {
+static void prv_draw_rotated_text_glyph(uint8_t *data, uint16_t stride, GRect bounds,
+                                        const RotatedGlyph *glyph, int16_t x, int16_t y,
+                                        uint8_t color) {
   if (!glyph) {
     return;
   }
@@ -599,7 +599,7 @@ static void prv_draw_rotated_text_glyph(GBitmap *bitmap, const RotatedGlyph *gly
       if (!(glyph->rows[row] & (1 << (glyph->width - col - 1)))) {
         continue;
       }
-      prv_set_rotated_text_pixel(bitmap, x + col, y + row, color);
+      prv_set_rotated_text_pixel(data, stride, bounds, x + col, y + row, color);
     }
   }
 }
@@ -615,6 +615,8 @@ static void prv_destroy_rotated_complication_bitmaps(void) {
   }
   s_rotated_left_buffer[0] = '\0';
   s_rotated_right_buffer[0] = '\0';
+  s_rotated_left_color = 0;
+  s_rotated_right_color = 0;
 }
 
 static GBitmap *prv_create_rotated_complication_bitmap(const char *text) {
@@ -641,7 +643,7 @@ static GBitmap *prv_create_rotated_complication_bitmap(const char *text) {
 
   while (cursor && cursor[0]) {
     const RotatedGlyph *glyph = prv_rotated_glyph(&cursor);
-    prv_draw_rotated_text_glyph(bitmap, glyph, x, y, text_color);
+    prv_draw_rotated_text_glyph(data, stride, bitmap_bounds, glyph, x, y, text_color);
     x += (glyph ? glyph->width : 4) + ROTATED_COMPLICATION_GLYPH_SPACING;
   }
 
@@ -649,7 +651,8 @@ static GBitmap *prv_create_rotated_complication_bitmap(const char *text) {
 }
 
 static bool prv_update_rotated_complication_bitmap(GBitmap **bitmap, char *cached_text,
-                                                   size_t cached_text_size, const char *new_text) {
+                                                   size_t cached_text_size, uint8_t *cached_color,
+                                                   const char *new_text) {
   if (!prv_should_rotate_side_complications()) {
     bool changed = *bitmap || cached_text[0];
     if (*bitmap) {
@@ -657,9 +660,13 @@ static bool prv_update_rotated_complication_bitmap(GBitmap **bitmap, char *cache
       *bitmap = NULL;
     }
     cached_text[0] = '\0';
+    *cached_color = 0;
     return changed;
   }
-  if (strncmp(cached_text, new_text, cached_text_size) == 0) {
+
+  uint8_t text_color = s_settings.text_color.argb;
+  bool same_text = strncmp(cached_text, new_text, cached_text_size) == 0;
+  if (same_text && *cached_color == text_color && (*bitmap || !new_text[0])) {
     return false;
   }
 
@@ -670,18 +677,21 @@ static bool prv_update_rotated_complication_bitmap(GBitmap **bitmap, char *cache
 
   strncpy(cached_text, new_text, cached_text_size);
   cached_text[cached_text_size - 1] = '\0';
+  *cached_color = text_color;
   *bitmap = prv_create_rotated_complication_bitmap(cached_text);
   return true;
 }
 
 static bool prv_update_rotated_left_bitmap(void) {
   return prv_update_rotated_complication_bitmap(&s_rotated_left_bitmap, s_rotated_left_buffer,
-                                                sizeof(s_rotated_left_buffer), s_left_buffer);
+                                                sizeof(s_rotated_left_buffer),
+                                                &s_rotated_left_color, s_left_buffer);
 }
 
 static bool prv_update_rotated_right_bitmap(void) {
   return prv_update_rotated_complication_bitmap(&s_rotated_right_bitmap, s_rotated_right_buffer,
-                                                sizeof(s_rotated_right_buffer), s_right_buffer);
+                                                sizeof(s_rotated_right_buffer),
+                                                &s_rotated_right_color, s_right_buffer);
 }
 
 static void prv_mark_rotated_complications_dirty_if_needed(bool changed) {
@@ -829,7 +839,7 @@ static void prv_rotated_complication_update_proc(Layer *layer, GContext *ctx) {
                                 TRIG_MAX_ANGLE - TRIG_MAX_ANGLE * 25 / 360);
 }
 
-static void prv_apply_colors(void) {
+static void prv_apply_colors(bool background_color_changed) {
   window_set_background_color(s_window, s_settings.background_color);
   text_layer_set_text_color(s_time_layer, s_settings.text_color);
   text_layer_set_text_color(s_date_layer, s_settings.text_color);
@@ -843,9 +853,9 @@ static void prv_apply_colors(void) {
     text_layer_set_text_color(s_charging_text_layer, s_settings.text_color);
   }
   bitmap_layer_set_background_color(s_logo_layer, s_settings.background_color);
-  prv_load_first_logo_frame();
-  s_rotated_left_buffer[0] = '\0';
-  s_rotated_right_buffer[0] = '\0';
+  if (background_color_changed) {
+    prv_load_first_logo_frame();
+  }
 }
 
 static void prv_layout_layers(void) {
@@ -987,13 +997,6 @@ static void prv_layout_layers(void) {
   layer_set_frame(s_rotated_complication_layer, GRect(0, 0, width, height));
 }
 
-static void prv_refresh_logo_callback(void *context) {
-  if (s_logo_layer) {
-    layer_mark_dirty(bitmap_layer_get_layer(s_logo_layer));
-    s_refresh_timer = app_timer_register(1000, prv_refresh_logo_callback, NULL);
-  }
-}
-
 static void prv_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   prv_update_time_and_date(tick_time);
 
@@ -1044,7 +1047,12 @@ static void prv_unobstructed_change(AnimationProgress progress, void *context) {
 }
 
 static void prv_inbox_received(DictionaryIterator *iter, void *context) {
-  bool changed_settings = false;
+  bool changed_background_color = false;
+  bool changed_text_color = false;
+  bool changed_time_format = false;
+  bool changed_complications = false;
+  bool changed_logo_trigger = false;
+  bool changed_alerts = false;
   bool changed_temperature = false;
   bool changed_uv = false;
   bool received_weather = false;
@@ -1074,90 +1082,140 @@ static void prv_inbox_received(DictionaryIterator *iter, void *context) {
 
   Tuple *bg_t = dict_find(iter, MESSAGE_KEY_BackgroundColor);
   if (prv_tuple_get_i32(bg_t, &value)) {
-    s_settings.background_color = GColorFromHEX(value);
-    changed_settings = true;
+    GColor color = GColorFromHEX(value);
+    if (s_settings.background_color.argb != color.argb) {
+      s_settings.background_color = color;
+      changed_background_color = true;
+    }
   }
 
   Tuple *text_t = dict_find(iter, MESSAGE_KEY_TextColor);
   if (prv_tuple_get_i32(text_t, &value)) {
-    s_settings.text_color = GColorFromHEX(value);
-    changed_settings = true;
+    GColor color = GColorFromHEX(value);
+    if (s_settings.text_color.argb != color.argb) {
+      s_settings.text_color = color;
+      changed_text_color = true;
+      changed_complications = true;
+    }
   }
 
   Tuple *temp_unit_t = dict_find(iter, MESSAGE_KEY_TemperatureUnit);
   if (prv_tuple_get_i32(temp_unit_t, &value)) {
-    s_settings.temperature_unit = prv_clamp_i32(value, 0, 2, TemperatureFahrenheit);
-    changed_settings = true;
+    int32_t normalized = prv_clamp_i32(value, 0, 2, TemperatureFahrenheit);
+    if (s_settings.temperature_unit != normalized) {
+      s_settings.temperature_unit = normalized;
+      changed_complications = true;
+    }
   }
 
   Tuple *date_t = dict_find(iter, MESSAGE_KEY_DateFormat);
   if (prv_tuple_get_i32(date_t, &value)) {
-    s_settings.date_format = prv_clamp_i32(value, 0, 2, DateFormatWords);
-    changed_settings = true;
+    int32_t normalized = prv_clamp_i32(value, 0, 2, DateFormatWords);
+    if (s_settings.date_format != normalized) {
+      s_settings.date_format = normalized;
+      changed_time_format = true;
+    }
   }
 
   Tuple *hour_t = dict_find(iter, MESSAGE_KEY_HourFormat);
   if (prv_tuple_get_i32(hour_t, &value)) {
-    s_settings.use_24_hour = value == 1;
-    changed_settings = true;
+    bool enabled = value == 1;
+    if (s_settings.use_24_hour != enabled) {
+      s_settings.use_24_hour = enabled;
+      changed_time_format = true;
+    }
   }
 
   Tuple *leading_zeros_t = dict_find(iter, MESSAGE_KEY_LeadingZeros);
   if (prv_tuple_get_i32(leading_zeros_t, &value)) {
-    s_settings.leading_zero_mode = prv_clamp_i32(value, 0, 3, LeadingZeroNone);
-    changed_settings = true;
+    int32_t normalized = prv_clamp_i32(value, 0, 3, LeadingZeroNone);
+    if (s_settings.leading_zero_mode != normalized) {
+      s_settings.leading_zero_mode = normalized;
+      changed_time_format = true;
+    }
   }
 
   Tuple *left_t = dict_find(iter, MESSAGE_KEY_ComplicationLeft);
   if (prv_tuple_get_i32(left_t, &value)) {
-    s_settings.complication_left = prv_clamp_i32(value, 0, 3, ComplicationUV);
-    changed_settings = true;
+    int32_t normalized = prv_clamp_i32(value, 0, 3, ComplicationUV);
+    if (s_settings.complication_left != normalized) {
+      s_settings.complication_left = normalized;
+      changed_complications = true;
+    }
   }
 
   Tuple *middle_t = dict_find(iter, MESSAGE_KEY_ComplicationMiddle);
   if (prv_tuple_get_i32(middle_t, &value)) {
-    s_settings.complication_middle = prv_clamp_i32(value, 0, 3, ComplicationBattery);
-    changed_settings = true;
+    int32_t normalized = prv_clamp_i32(value, 0, 3, ComplicationBattery);
+    if (s_settings.complication_middle != normalized) {
+      s_settings.complication_middle = normalized;
+      changed_complications = true;
+    }
   }
 
   Tuple *right_t = dict_find(iter, MESSAGE_KEY_ComplicationRight);
   if (prv_tuple_get_i32(right_t, &value)) {
-    s_settings.complication_right = prv_clamp_i32(value, 0, 3, ComplicationTemperature);
-    changed_settings = true;
+    int32_t normalized = prv_clamp_i32(value, 0, 3, ComplicationTemperature);
+    if (s_settings.complication_right != normalized) {
+      s_settings.complication_right = normalized;
+      changed_complications = true;
+    }
   }
 
   Tuple *rotate_side_t = dict_find(iter, MESSAGE_KEY_RotateSideText);
   if (prv_tuple_get_i32(rotate_side_t, &value)) {
-    s_settings.rotate_side_text = value == 1;
-    changed_settings = true;
+    bool enabled = value == 1;
+    if (s_settings.rotate_side_text != enabled) {
+      s_settings.rotate_side_text = enabled;
+      changed_complications = true;
+    }
   }
 
   Tuple *disconnect_t = dict_find(iter, MESSAGE_KEY_VibeOnDisconnect);
   if (prv_tuple_get_i32(disconnect_t, &value)) {
-    s_settings.vibe_on_disconnect = value == 1;
-    changed_settings = true;
+    bool enabled = value == 1;
+    if (s_settings.vibe_on_disconnect != enabled) {
+      s_settings.vibe_on_disconnect = enabled;
+      changed_alerts = true;
+    }
   }
 
   Tuple *connect_t = dict_find(iter, MESSAGE_KEY_VibeOnConnect);
   if (prv_tuple_get_i32(connect_t, &value)) {
-    s_settings.vibe_on_connect = value == 1;
-    changed_settings = true;
+    bool enabled = value == 1;
+    if (s_settings.vibe_on_connect != enabled) {
+      s_settings.vibe_on_connect = enabled;
+      changed_alerts = true;
+    }
   }
 
   Tuple *logo_t = dict_find(iter, MESSAGE_KEY_LogoRotationTrigger);
   if (prv_tuple_get_i32(logo_t, &value)) {
-    s_settings.logo_rotation_trigger = prv_clamp_i32(value, 0, 4, LogoRotationTriggerOff);
-    prv_apply_logo_trigger();
-    changed_settings = true;
+    int32_t normalized = prv_clamp_i32(value, 0, 4, LogoRotationTriggerOff);
+    if (s_settings.logo_rotation_trigger != normalized) {
+      s_settings.logo_rotation_trigger = normalized;
+      changed_logo_trigger = true;
+    }
   }
+
+  bool changed_settings = changed_background_color || changed_text_color ||
+                          changed_time_format || changed_complications ||
+                          changed_logo_trigger || changed_alerts;
 
   if (changed_settings) {
     prv_save_settings();
-    prv_apply_colors();
+  }
+  if (changed_background_color || changed_text_color) {
+    prv_apply_colors(changed_background_color);
+  }
+  if (changed_logo_trigger) {
+    prv_apply_logo_trigger();
+  }
+  if (changed_time_format) {
     prv_update_now();
   }
 
-  if (changed_settings) {
+  if (changed_complications) {
     prv_update_complications();
   } else {
     if (changed_temperature) {
@@ -1290,10 +1348,6 @@ static void prv_main_window_load(Window *window) {
 static void prv_main_window_unload(Window *window) {
   unobstructed_area_service_unsubscribe();
 
-  if (s_refresh_timer) {
-    app_timer_cancel(s_refresh_timer);
-    s_refresh_timer = NULL;
-  }
   prv_clear_double_tap_state();
 
   layer_destroy(s_rotated_complication_layer);
@@ -1364,7 +1418,6 @@ static void prv_init(void) {
   app_message_register_outbox_failed(prv_outbox_failed);
   app_message_open(512, 128);
 
-  s_refresh_timer = app_timer_register(1000, prv_refresh_logo_callback, NULL);
   prv_request_weather_if_stale();
 }
 
