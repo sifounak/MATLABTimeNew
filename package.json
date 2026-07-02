@@ -43,6 +43,11 @@
                     "type": "raw"
                 },
                 {
+                    "file": "images/MATLAB_Logo_Small.png",
+                    "name": "IMAGE_QUICK_VIEW_LOGO",
+                    "type": "bitmap"
+                },
+                {
                     "file": "images/bluetooth.png",
                     "name": "IMAGE_BLUETOOTH",
                     "targetPlatforms": [
@@ -143,5 +148,5 @@
             "watchface": true
         }
     },
-    "version": "2.1.0"
+    "version": "2.2.0"
 }

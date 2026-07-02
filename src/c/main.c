@@ -11,6 +11,7 @@
 #define ROTATED_COMPLICATION_BITMAP_HEIGHT 18
 #define ROTATED_COMPLICATION_EDGE_INSET 16
 #define ROTATED_COMPLICATION_GLYPH_SPACING 1
+#define QUICK_VIEW_SMALL_LOGO_Y_OFFSET 3
 
 typedef enum {
   ComplicationEmpty = 0,
@@ -45,6 +46,11 @@ typedef enum {
   LogoRotationTriggerMinute = 3,
   LogoRotationTriggerHour = 4,
 } LogoRotationTrigger;
+
+typedef enum {
+  LayoutModeNormal = 0,
+  LayoutModeQuickView = 1,
+} LayoutMode;
 
 typedef struct {
   GColor background_color;
@@ -106,6 +112,7 @@ static Layer *s_rotated_complication_layer;
 
 static GBitmapSequence *s_logo_sequence;
 static GBitmap *s_logo_bitmap;
+static GBitmap *s_quick_view_logo_bitmap;
 static GBitmap *s_bluetooth_bitmap;
 static GBitmap *s_charging_bitmap;
 static GBitmap *s_rotated_left_bitmap;
@@ -139,6 +146,7 @@ static char s_rotated_left_buffer[20];
 static char s_rotated_right_buffer[20];
 static uint8_t s_rotated_left_color;
 static uint8_t s_rotated_right_color;
+static LayoutMode s_layout_mode;
 
 static void prv_layout_layers(void);
 
@@ -156,8 +164,27 @@ static bool prv_is_basalt(void) {
 #endif
 }
 
+static bool prv_is_gabbro(void) {
+#if defined(PBL_PLATFORM_GABBRO)
+  return true;
+#else
+  return false;
+#endif
+}
+
 static bool prv_should_rotate_side_complications(void) {
   return s_settings.rotate_side_text && prv_is_round();
+}
+
+static LayoutMode prv_layout_mode_for_bounds(GRect unobstructed_bounds) {
+  GRect full_bounds = layer_get_bounds(s_window_layer);
+  if (unobstructed_bounds.origin.y != full_bounds.origin.y ||
+      unobstructed_bounds.size.h < full_bounds.size.h ||
+      unobstructed_bounds.size.w < full_bounds.size.w) {
+    return LayoutModeQuickView;
+  }
+
+  return LayoutModeNormal;
 }
 
 static bool prv_should_show_date_leading_zero(void) {
@@ -332,7 +359,9 @@ static void prv_load_first_logo_frame(void) {
   gbitmap_sequence_restart(s_logo_sequence);
   prv_clear_logo_to_background();
   gbitmap_sequence_update_bitmap_next_frame(s_logo_sequence, s_logo_bitmap, NULL);
-  bitmap_layer_set_bitmap(s_logo_layer, s_logo_bitmap);
+  if (s_layout_mode != LayoutModeQuickView) {
+    bitmap_layer_set_bitmap(s_logo_layer, s_logo_bitmap);
+  }
   layer_mark_dirty(bitmap_layer_get_layer(s_logo_layer));
 }
 
@@ -341,7 +370,9 @@ static void prv_logo_timer_callback(void *context) {
 
   prv_clear_logo_to_background();
   if (gbitmap_sequence_update_bitmap_next_frame(s_logo_sequence, s_logo_bitmap, &next_delay)) {
-    bitmap_layer_set_bitmap(s_logo_layer, s_logo_bitmap);
+    if (s_layout_mode != LayoutModeQuickView) {
+      bitmap_layer_set_bitmap(s_logo_layer, s_logo_bitmap);
+    }
     layer_mark_dirty(bitmap_layer_get_layer(s_logo_layer));
     app_timer_register(next_delay, prv_logo_timer_callback, NULL);
   } else {
@@ -351,7 +382,8 @@ static void prv_logo_timer_callback(void *context) {
 }
 
 static void prv_animate_logo(void) {
-  if (s_logo_animating || !s_logo_sequence || !s_logo_bitmap || !s_logo_layer) {
+  if (s_layout_mode == LayoutModeQuickView ||
+      s_logo_animating || !s_logo_sequence || !s_logo_bitmap || !s_logo_layer) {
     return;
   }
   s_logo_animating = true;
@@ -799,6 +831,12 @@ static void prv_set_charging_indicator_hidden(bool hidden) {
   }
 }
 
+static void prv_update_indicator_visibility(void) {
+  bool quick_view = s_layout_mode == LayoutModeQuickView;
+  prv_set_bluetooth_indicator_hidden(quick_view || !s_connection_initialized || s_connected);
+  prv_set_charging_indicator_hidden(quick_view || !s_battery_charging);
+}
+
 static GPoint prv_edge_point_for_degrees(GRect bounds, int32_t degrees) {
   int16_t center_x = bounds.size.w / 2;
   int16_t center_y = bounds.size.h / 2;
@@ -860,14 +898,24 @@ static void prv_apply_colors(bool background_color_changed) {
 
 static void prv_layout_layers(void) {
   GRect bounds = layer_get_unobstructed_bounds(s_window_layer);
+  GRect full_bounds = layer_get_bounds(s_window_layer);
+  LayoutMode layout_mode = prv_layout_mode_for_bounds(bounds);
+  s_layout_mode = layout_mode;
+
   bool is_round = prv_is_round();
   bool is_basalt = prv_is_basalt();
   bool rotate_side_text = is_round && s_settings.rotate_side_text;
-  int16_t width = bounds.size.w;
-  int16_t height = bounds.size.h;
+  bool quick_view = layout_mode == LayoutModeQuickView;
+  bool show_quick_view_complications = quick_view && prv_is_gabbro();
+  int16_t left = full_bounds.origin.x;
+  int16_t top = full_bounds.origin.y;
+  int16_t width = full_bounds.size.w;
+  int16_t height = full_bounds.size.h;
   int16_t time_layout_height = is_basalt ? 34 : (is_round ? 48 : 40);
   int16_t date_font_height = is_basalt ? 22 : (is_round ? 26 : 22);
   int16_t small_font_height = is_basalt ? 14 : 16;
+  text_layer_set_font(s_time_layer, s_time_font);
+  text_layer_set_font(s_date_layer, s_date_font);
   int16_t time_text_layer_offset = is_basalt ? 0 : (is_round ? -5 : -4);
   int16_t date_text_layer_offset = is_basalt ? 0 : (is_round ? 2 : 1);
   int16_t complication_text_layer_offset = is_basalt ? 0 : (is_round ? 1 : 0);
@@ -876,11 +924,32 @@ static void prv_layout_layers(void) {
   int16_t complication_y = is_basalt ? 150 :
       ((!is_round ? height - small_font_height - 5 : height - small_font_height - 10) - 3);
 
-  layer_set_frame(text_layer_get_layer(s_time_layer), GRect(0, time_y + time_text_layer_offset, width, time_layout_height + 8));
-  layer_set_frame(text_layer_get_layer(s_date_layer), GRect(0, date_y + date_text_layer_offset, width, date_font_height + 6));
+  int16_t text_shift_y = 0;
+  if (quick_view) {
+    int16_t date_layer_height = date_font_height + 6;
+    int16_t date_frame_bottom = date_y + date_text_layer_offset + date_layer_height;
+    int16_t unobstructed_bottom = bounds.origin.y + bounds.size.h;
+    if (date_frame_bottom > unobstructed_bottom) {
+      text_shift_y = date_frame_bottom - unobstructed_bottom;
+    }
+  }
+  time_y += top - text_shift_y;
+  date_y += top - text_shift_y;
+  complication_y += top;
 
-  if (!is_round) {
+  layer_set_frame(text_layer_get_layer(s_time_layer),
+                  GRect(left, time_y + time_text_layer_offset, width, time_layout_height + 8));
+  layer_set_frame(text_layer_get_layer(s_date_layer),
+                  GRect(left, date_y + date_text_layer_offset, width, date_font_height + 6));
+
+  if (quick_view && !show_quick_view_complications) {
+    layer_set_hidden(text_layer_get_layer(s_left_layer), true);
+    layer_set_hidden(text_layer_get_layer(s_middle_layer), true);
+    layer_set_hidden(text_layer_get_layer(s_right_layer), true);
+    layer_set_hidden(s_rotated_complication_layer, true);
+  } else if (!is_round) {
     layer_set_hidden(text_layer_get_layer(s_left_layer), false);
+    layer_set_hidden(text_layer_get_layer(s_middle_layer), false);
     layer_set_hidden(text_layer_get_layer(s_right_layer), false);
     layer_set_hidden(s_rotated_complication_layer, true);
 
@@ -890,11 +959,12 @@ static void prv_layout_layers(void) {
 
     int16_t side_inset = is_basalt ? 4 : 15;
     int16_t column_width = is_basalt ? (width - side_inset * 2) / 3 : width / 3;
-    layer_set_frame(text_layer_get_layer(s_left_layer), GRect(side_inset, complication_y + complication_text_layer_offset, column_width, small_font_height + 4));
-    layer_set_frame(text_layer_get_layer(s_middle_layer), GRect((width - column_width) / 2, complication_y + complication_text_layer_offset, column_width, small_font_height + 4));
-    layer_set_frame(text_layer_get_layer(s_right_layer), GRect(width - side_inset - column_width, complication_y + complication_text_layer_offset, column_width, small_font_height + 4));
+    layer_set_frame(text_layer_get_layer(s_left_layer), GRect(left + side_inset, complication_y + complication_text_layer_offset, column_width, small_font_height + 4));
+    layer_set_frame(text_layer_get_layer(s_middle_layer), GRect(left + (width - column_width) / 2, complication_y + complication_text_layer_offset, column_width, small_font_height + 4));
+    layer_set_frame(text_layer_get_layer(s_right_layer), GRect(left + width - side_inset - column_width, complication_y + complication_text_layer_offset, column_width, small_font_height + 4));
   } else {
     layer_set_hidden(text_layer_get_layer(s_left_layer), rotate_side_text);
+    layer_set_hidden(text_layer_get_layer(s_middle_layer), false);
     layer_set_hidden(text_layer_get_layer(s_right_layer), rotate_side_text);
     layer_set_hidden(s_rotated_complication_layer, !rotate_side_text);
 
@@ -914,11 +984,11 @@ static void prv_layout_layers(void) {
       right_width = 1;
     }
 
-    int16_t middle_x = (width - middle_width) / 2;
+    int16_t middle_x = left + (width - middle_width) / 2;
     int16_t flank_y = complication_y - small_font_height / 2 + complication_text_layer_offset;
     int16_t right_x = middle_x + middle_width + gap;
-    int16_t left_available = middle_x - gap - safe_inset;
-    int16_t right_available = width - safe_inset - right_x;
+    int16_t left_available = middle_x - left - gap - safe_inset;
+    int16_t right_available = left + width - safe_inset - right_x;
 
     if (left_available < 1) {
       left_available = 1;
@@ -945,12 +1015,32 @@ static void prv_layout_layers(void) {
   }
 
   if (s_logo_sequence) {
-    GSize logo_size = gbitmap_sequence_get_bitmap_size(s_logo_sequence);
-    int16_t logo_x = (width - logo_size.w) / 2;
-    int16_t logo_y = is_basalt ? 2 : ((time_y - logo_size.h) / 2) + 5 + (!is_round ? 5 : 0);
+    GSize full_logo_size = gbitmap_sequence_get_bitmap_size(s_logo_sequence);
+    GSize logo_size = full_logo_size;
+    GBitmap *display_logo = s_logo_bitmap;
+    int16_t normal_time_y = is_basalt ? 90 : height / 2 - time_layout_height / 4 + (!is_round ? 12 : 0);
+    int16_t logo_y = is_basalt ? 2 : ((normal_time_y - full_logo_size.h) / 2) + 5 + (!is_round ? 5 : 0);
 #if defined(PBL_PLATFORM_EMERY)
     logo_y -= 10;
 #endif
+    int16_t time_visual_top_y = time_y;
+    if (quick_view && text_shift_y > 0 && logo_y + full_logo_size.h > time_visual_top_y) {
+      int16_t available_logo_height = time_visual_top_y - top;
+      if (available_logo_height >= full_logo_size.h) {
+        logo_y = top + (available_logo_height - full_logo_size.h) / 2;
+      } else if (s_quick_view_logo_bitmap) {
+        GSize quick_view_logo_size = gbitmap_get_bounds(s_quick_view_logo_bitmap).size;
+        if (available_logo_height >= quick_view_logo_size.h) {
+          display_logo = s_quick_view_logo_bitmap;
+          logo_size = quick_view_logo_size;
+          logo_y = top + (available_logo_height - logo_size.h) / 2;
+          logo_y += QUICK_VIEW_SMALL_LOGO_Y_OFFSET;
+        }
+      }
+    }
+
+    bitmap_layer_set_bitmap(s_logo_layer, display_logo);
+    int16_t logo_x = left + (width - logo_size.w) / 2;
     layer_set_frame(bitmap_layer_get_layer(s_logo_layer), GRect(logo_x, logo_y, logo_size.w, logo_size.h));
 
     if (is_basalt && s_bluetooth_text_layer) {
@@ -1003,6 +1093,7 @@ static void prv_layout_layers(void) {
   }
 
   layer_set_frame(s_rotated_complication_layer, GRect(0, 0, width, height));
+  prv_update_indicator_visibility();
 }
 
 static void prv_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
@@ -1028,7 +1119,7 @@ static void prv_battery_handler(BatteryChargeState state) {
                          s_battery_charging != charger_connected;
   s_battery_percent = state.charge_percent;
   s_battery_charging = charger_connected;
-  prv_set_charging_indicator_hidden(!s_battery_charging);
+  prv_update_indicator_visibility();
 
   if (battery_changed) {
     prv_update_complications_for_type(ComplicationBattery);
@@ -1039,7 +1130,6 @@ static void prv_connection_handler(bool connected) {
   bool was_connected = s_connected;
   s_connected = connected;
 
-  prv_set_bluetooth_indicator_hidden(s_connected);
   if (s_connection_initialized) {
     if (!s_connected && was_connected && s_settings.vibe_on_disconnect) {
       vibes_long_pulse();
@@ -1048,6 +1138,7 @@ static void prv_connection_handler(bool connected) {
     }
   }
   s_connection_initialized = true;
+  prv_update_indicator_visibility();
 }
 
 static void prv_unobstructed_change(AnimationProgress progress, void *context) {
@@ -1262,6 +1353,7 @@ static void prv_main_window_load(Window *window) {
 
   s_logo_sequence = gbitmap_sequence_create_with_resource(RESOURCE_ID_LOGO_ANIMATION);
   s_logo_bitmap = gbitmap_create_blank(gbitmap_sequence_get_bitmap_size(s_logo_sequence), GBitmapFormat8Bit);
+  s_quick_view_logo_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_QUICK_VIEW_LOGO);
   s_logo_layer = bitmap_layer_create(GRect(0, 0, 90, 90));
   bitmap_layer_set_compositing_mode(s_logo_layer, GCompOpSet);
   bitmap_layer_set_background_color(s_logo_layer, s_settings.background_color);
@@ -1390,6 +1482,10 @@ static void prv_main_window_unload(Window *window) {
     s_charging_bitmap = NULL;
   }
   gbitmap_destroy(s_logo_bitmap);
+  if (s_quick_view_logo_bitmap) {
+    gbitmap_destroy(s_quick_view_logo_bitmap);
+    s_quick_view_logo_bitmap = NULL;
+  }
   gbitmap_sequence_destroy(s_logo_sequence);
 
   fonts_unload_custom_font(s_small_font);
